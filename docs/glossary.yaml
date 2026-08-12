@@ -1,0 +1,479 @@
+meta:
+  document: glossary
+  project: STOG
+  version: 0.1
+  authority: canonical
+  description: >-
+    STOG의 단일 용어 기준. 다른 모든 문서와 코드는 이 문서의 en 식별자를 그대로 사용한다.
+    이 문서와 충돌하는 표현이 발견되면 이 문서가 우선한다.
+
+conventions:
+  ko: 문서와 UI에 표기하는 한국어 명칭
+  en: 코드 식별자. 변수명, 테이블명, API 필드명에 사용
+  avoid: 같은 대상을 가리키지만 사용을 금지하는 표현
+  rules:
+    - 코드에는 en만 사용한다
+    - 문서에는 ko를 쓰고 최초 등장 시 en을 괄호로 병기한다
+    - avoid에 있는 단어는 문서, 코드, 커밋 메시지, UI 어디에도 쓰지 않는다
+    - 새 용어가 필요하면 이 문서에 먼저 추가한 뒤 사용한다
+    - 방향이 다른 동작은 direction이 드러나는 별도 용어를 사용한다
+
+contexts:
+  - id: space
+    ko: 공간
+    scope: 셀과 좌표, 지도 표현
+  - id: record
+    ko: 기록
+    scope: 여행, 방문, 사진
+  - id: plan
+    ko: 계획
+    scope: 장소 검색, 일정 구성
+  - id: social
+    ko: 소셜
+    scope: 공개, 그룹, 반응
+  - id: reward
+    ko: 리워드
+    scope: 포인트, 쿠폰, 제휴
+  - id: profile
+    ko: 성향
+    scope: 설문, 유형, 추천 입력
+
+terms:
+
+  # ---------- space ----------
+  - ko: 셀
+    en: cell
+    context: space
+    definition: H3 해상도 10의 육각형 단위 공간. 마주보는 변 사이 약 114m, 꼭짓점 사이 약 132m
+    detail:
+      - 저장하지 않고 좌표로부터 계산한다. cells 테이블은 존재하지 않는다
+      - 해상도는 10으로 고정하며 변경하지 않는다
+      - 내용물이 없는 셀은 지도에 그리지 않는다
+    avoid: [블록, 헥사, 타일, 육각형, 그리드]
+
+  - ko: 셀 아이디
+    en: cell_id
+    context: space
+    definition: 좌표와 해상도로 계산된 H3 셀 식별자. 본질은 64비트 정수다
+    representation:
+      - {layer: DB 저장, type: BIGINT, why: 인덱스 크기가 절반이고 비교가 빠르다}
+      - {layer: API 직렬화, type: 16진 문자열, why: JSON 숫자의 안전 정수 상한은 2의 53승인데 해상도 10의 셀 값은 그보다 70배 크다. 숫자로 내보내면 자바스크립트 계열에서 끝자리가 조용히 손실된다}
+      - {layer: 앱과 서버 내부, type: Long, why: h3-java의 latLngToCell이 long을 반환한다}
+    detail:
+      - 변환은 경계에서만 한다. h3ToString과 stringToH3를 사용한다
+      - 외래키가 아니라 인덱싱된 컬럼으로 다룬다
+      - 사진, 방문, 장소, 행사가 모두 이 값으로 묶인다
+    avoid: [셀키, 셀주소, hexId]
+
+  - ko: 좌표
+    en: coords
+    context: space
+    definition: 위도와 경도 원본 값
+    detail:
+      - cell_id와 별개로 항상 함께 저장한다
+      - 사진 스팟 노출, 지도 핀 위치, 군집 밀도 계산, 속도 기반 보간에 필요하다
+    avoid: [위치값, 포인트]
+
+  - ko: 셀 바탕
+    en: cell_background
+    context: space
+    definition: 셀의 바탕색을 결정하는 상태. 사용자 활동만으로 정해지며 셋 중 하나만 성립한다
+    values:
+      - en: empty
+        ko: 빈 셀
+      - en: visited
+        ko: 방문한 셀
+      - en: hot
+        ko: 불타는 셀
+        note: 좋아요 수와 방문 수만으로 판정한다. 유동인구와 혼잡도는 근거에 넣지 않는다
+    avoid: [셀상태, 셀타입]
+
+  - ko: 셀 배지
+    en: cell_badge
+    context: space
+    definition: 셀 바탕 위에 얹는 표식. 한 셀에 최대 2개까지 표시한다
+    values:
+      - en: honey
+        ko: 꿀 배지
+        note: 제휴처. 광고임을 라벨로 명시한다
+      - en: hidden
+        ko: 무지개 배지
+        note: 일정에 없는 숨은 명소
+      - en: landmark
+        ko: 아이콘 배지
+        note: 공공데이터 기반 문화재, 박물관, 관광지, 행사
+    avoid: [오버레이, 마커, 셀아이콘]
+
+  - ko: 셀 전환
+    en: cell_transition
+    context: space
+    definition: 사용자의 현재 셀이 다른 셀로 바뀌는 사건
+    detail:
+      - 같은 셀이 연속 2회 잡혀야 전환으로 인정한다
+      - GPS 오차로 인한 경계 진동을 막기 위한 규칙이다
+    avoid: [셀이동, 셀변경]
+
+  # ---------- record ----------
+  - ko: 여행
+    en: trip
+    context: record
+    definition: 시작과 종료가 있는 기록 단위. STOG의 모든 기록이 매달리는 최상위 개념
+    detail:
+      - 개인 여행과 그룹 여행 모두 trip 하나로 표현한다
+      - 그룹 여행도 참여자별로 나뉘지 않고 공동 기록 하나로 생성된다
+      - activity_type은 여행 단위 속성이다. 값은 walk, run, date, tour, etc 다섯 가지다
+    avoid: [트립, 일정기록, 여행기록]
+
+  - ko: 여행 모드
+    en: trip_mode
+    context: record
+    definition: 여행의 위치 수집 상태
+    values:
+      - en: active
+        ko: 수집 중
+        note: 50m 이동 필터 기준으로 위치 콜백을 받는다
+      - en: dormant
+        ko: 휴면
+        note: 위치 수집을 멈추고 저전력 움직임 감지만 유지한다. 움직임이 감지되면 active로 복귀한다
+      - en: ended
+        ko: 종료
+        note: 여행이 끝난 상태. 같은 여행으로 재개할 수 없다
+    transitions:
+      - {from: none, to: active, trigger: 일정 시작일 도래 또는 하단 중앙 버튼}
+      - {from: active, to: dormant, trigger: 1시간 이상 셀 전환 없음}
+      - {from: active, to: dormant, trigger: 배터리 15퍼센트 이하, notify: true}
+      - {from: dormant, to: active, trigger: 움직임 감지}
+      - {from: active, to: ended, trigger: 일정 종료일 자정, notify: true}
+      - {from: dormant, to: ended, trigger: 일정 종료일 자정, notify: true}
+    detail:
+      - dormant 진입 시에는 알림을 보내지 않는다. 카페나 전시 관람 중 반복 알림이 되기 때문이다
+      - dormant는 종료가 아니다. 같은 여행 안에서 재개되므로 하루가 두 개로 쪼개지지 않는다
+    avoid: [트래킹모드, 기록모드, GPS모드]
+
+  - ko: 기록 중지
+    en: pause
+    context: record
+    definition: 여행 모드를 유지한 채 위치 수집만 일시적으로 멈춘 상태
+    detail:
+      - 중지 중에는 상단에 얇은 배너를 계속 표시한다
+      - 배너를 탭하면 즉시 재개한다
+    avoid: [일시정지, 정지, 홀드]
+
+  - ko: 방문
+    en: visit
+    context: record
+    definition: 사전에 목표로 지정한 셀에 30분 이상 체류한 상태
+    detail:
+      - 보간으로 채워진 셀은 방문으로 인정하지 않는다
+    avoid: [체크인, 도착]
+
+  - ko: 통과
+    en: pass
+    context: record
+    definition: 방문 판정 후 해당 셀을 벗어난 상태
+    detail:
+      - 통과 시 "OOO은 어떠셨나요?" 슬라이드를 띄우고 후기 또는 다른 장소 방문으로 분기한다
+    avoid: [이탈, 퇴장]
+
+  - ko: 동선
+    en: trail
+    context: record
+    definition: 한 여행에서 지나온 셀의 시간순 연속
+    detail:
+      - 두 위치 사이 평균 속도가 시속 6km 이하면 실선으로 잇는다
+      - 초과하면 점선과 연한 색으로 표시하고 방문 판정과 쿠폰 대상에서 제외한다
+    avoid: [경로, 발자국, 루트]
+
+  - ko: 스팟
+    en: spot
+    context: record
+    definition: 사진을 촬영한 정확한 좌표
+    detail:
+      - 셀보다 정밀한 단위다. 다른 사용자가 같은 자리를 찾아가는 것이 목적이므로 공개한다
+    avoid: [포토스팟, 촬영지점, 핀]
+
+  - ko: 사진
+    en: photo
+    context: record
+    definition: 여행에 저장된 이미지. 앱 내 카메라 촬영과 갤러리 업로드 두 경로가 있다
+    sources:
+      - en: camera
+        ko: 앱 내 촬영
+        cell: 촬영 시점의 GPS로 셀을 정한다
+      - en: gallery
+        ko: 갤러리 업로드
+        cell: EXIF 좌표로 셀을 정한다. 좌표가 없으면 셀을 정하지 않는다
+    detail:
+      - 셀이 없는 사진은 지도에 나타나지 않고 여행 사진첩에만 보관된다
+      - 갤러리 업로드는 리워드 대상이 아니다. EXIF는 편집이 가능하기 때문이다
+      - 셀이 있는 사진은 출처와 무관하게 셀 통계에 반영된다
+      - 여행 종료 후 게시물 형태로 정리되며 인스타그램으로 내보낼 수 있다
+    avoid: [이미지, 픽처]
+
+  - ko: 내보내기
+    en: share_export
+    context: record
+    direction: STOG에서 외부 앱으로
+    definition: STOG의 사진 파일을 외부 앱의 편집 화면으로 전달하는 동작
+    detail:
+      - STOG는 파일을 전달하는 데서 끝난다
+      - 편집과 게시는 사용자가 외부 앱에서 직접 수행한다
+      - 인스타그램에는 ACTION_SEND 인텐트로 사진 파일만 전달한다
+    avoid: [외부 공유]
+
+  - ko: 보관함
+    en: archive
+    context: record
+    definition: 종료된 여행이 쌓이는 개인 기록 공간. UI 명칭은 "나의 여행"
+    detail:
+      - 지도 위에서 숨기기와 보이기를 전환할 수 있다
+      - 그룹 여행이 삭제되어도 본인이 촬영한 사진은 이곳에 남는다
+    avoid: [아카이브, 히스토리, 내기록]
+
+  # ---------- plan ----------
+  - ko: 장소
+    en: place
+    context: plan
+    definition: 검색으로 찾을 수 있는 상호나 시설. 음식점, 카페, 쇼핑, 숙소를 포함한다
+    detail:
+      - 셀이 아니라 좌표를 가진 개별 대상이다
+      - 셀 위에 아이콘으로 표시하는 것은 landmark 배지뿐이며 일반 장소는 검색 패널에만 노출한다
+      - 무장애 정보는 place의 accessibility 속성이다. 별도 용어를 만들지 않고 셀 배지로도 표시하지 않는다
+    avoid: [스팟, 포인트, 지점, POI]
+
+  - ko: 일정 바구니
+    en: basket
+    context: plan
+    definition: 여행에 넣을 후보를 모아두는 목록. 아직 날짜와 순서가 없다
+    detail:
+      - 검색으로 담는 것이 기본이고 지도 셀에서 담는 것은 부가 기능이다
+    avoid: [위시리스트, 장바구니, 카트]
+
+  - ko: 공유 담기
+    en: share_import
+    context: plan
+    direction: 외부 앱에서 STOG로
+    definition: 외부 앱의 공유 기능으로 받은 항목을 STOG 일정 바구니에 담는 동작
+    detail:
+      - 결과물은 링크 블록이다
+      - 담기 단계에서는 원본과 텍스트를 보존하고 좌표 매핑은 일정 배치 시점으로 미룬다
+    avoid: [외부 공유]
+
+  - ko: 링크 블록
+    en: link_block
+    context: plan
+    definition: 인스타그램, 네이버 지도, 카카오 지도 등에서 공유 담기로 바구니에 들어온 항목
+    fields: [source, original_url, title, thumbnail, category, coords, cell_id, status]
+    stages:
+      - stage: 담기
+        does: og 태그만 파싱해 이미지, 상호명, 링크, 출처를 저장한다
+        cost: 검색 API 호출 없음
+      - stage: 일정 배치
+        does: 상호명으로 지도 검색해 좌표와 카테고리를 얻고 셀을 계산한다
+        cost: 항목당 검색 1회
+    values:
+      - en: resolved
+        ko: 매핑 완료
+      - en: manual
+        ko: 사용자 입력으로 매핑
+      - en: unresolved
+        ko: 위치 미확인
+    detail:
+      - 좌표가 없어도 담을 수 있다. 이 경우 상호명이나 지역명만 표시한다
+      - unresolved 항목은 바구니에 남지만 동선 계산에서 제외한다
+      - 이미지로만 구성된 게시물은 자동 인식하지 않는다. 사용자에게 장소 이름을 입력받는다
+      - 상세 처리 방식은 구현 단계에서 확정한다. 현 단계는 틀만 정의한다
+    avoid: [외부링크, 공유카드, 임포트]
+
+  - ko: 일정 항목
+    en: itinerary_item
+    context: plan
+    definition: 바구니에서 꺼내 날짜와 순서가 부여된 항목
+    detail:
+      - 카드 대시보드에서 순서 변경과 중간 삽입이 가능하다
+    avoid: [스케줄, 코스항목, 플랜아이템]
+
+  - ko: 일정
+    en: itinerary
+    context: plan
+    definition: 일정 항목이 날짜별로 배치된 전체 계획
+    avoid: [플랜, 코스, 스케줄]
+
+  - ko: 캘린더
+    en: calendar
+    context: plan
+    definition: 여행 일정을 잡고 월별로 관리하는 화면
+    detail:
+      - 여행 모드 자동 활성화가 이 화면에서 지정한 일정 시작일을 기준으로 동작한다
+    avoid: [일정표, 달력뷰, 스케줄러]
+
+  - ko: 촬영 화면
+    en: capture_screen
+    context: record
+    definition: 사진 촬영 전용 화면. 하단 중앙 버튼으로 진입한다
+    detail:
+      - 촬영 직후와 보관함에서 다운로드 버튼으로 기기에 저장할 수 있다
+      - 자동 갤러리 저장은 하지 않는다. 사용자가 눌러서 받는다
+    avoid: [카메라뷰, 촬영모드]
+
+  - ko: 이동 스타일
+    en: mobility_style
+    context: plan
+    definition: 온보딩 설문에서 별도로 수집하는 이동 선호. 성향 유형 판정에는 넣지 않는다
+    detail:
+      - AI 동선 생성의 입력 파라미터로만 사용한다
+    values: [한 지역 도보, 대중교통 광역, 자차 원거리, 한 장소 체류]
+    avoid: [이동수단, 교통성향]
+
+  # ---------- social ----------
+  - ko: 그룹 여행
+    en: group_trip
+    context: social
+    definition: 둘 이상이 참여하는 trip. 그룹장과 참여자의 관리 권한은 다르고 내부 활동 권한은 같다
+    detail:
+      - 그룹장만 초대 링크를 만들고 참여자를 삭제할 수 있다
+      - 모든 참여자는 공유 담기나 앱 내부 검색으로 일정 바구니에 항목을 추가할 수 있다
+      - 모든 참여자는 여행 일정을 수정하고 변경 이력을 확인할 수 있다
+      - 동시 편집은 지원하지 않는다. 변경은 요청 단위로 반영하고 이력에 남긴다
+      - 여행 기록은 삭제할 수 없고 나가기만 가능하다
+      - 마지막 참여자가 나가면 기록이 자동 삭제된다
+    avoid: [팀여행, 동행, 파티]
+
+  - ko: 참여자
+    en: member
+    context: social
+    definition: 그룹 여행에 초대되어 참여 중인 사용자
+    avoid: [멤버, 그룹원, 동행자]
+
+  - ko: 공개 범위
+    en: visibility
+    context: social
+    definition: 여행 기록의 노출 수준
+    values:
+      - en: private
+        ko: 비공개
+      - en: group
+        ko: 그룹 공개
+      - en: public
+        ko: 전체 공개
+    detail:
+      - 여행 종료 후 공개가 기본이며 선택에 따라 즉시 공개할 수 있다
+      - 공개 시 개인정보는 마스킹한다
+    avoid: [권한, 노출설정, 프라이버시]
+
+  - ko: 좋아요
+    en: like
+    context: social
+    definition: 공개 동선 또는 사진 게시물에 남기는 반응
+    detail:
+      - 대상은 trip과 photo 두 종류이며 같은 테이블 구조를 공유한다
+      - 사진 좋아요는 불타는 셀 판정과 셀 대표 사진 선정의 근거다
+      - 사용자당 대상당 1회로 제한한다
+    avoid: [하트, 추천, 찜]
+
+  - ko: 셀 대표 사진
+    en: top_photo
+    context: space
+    definition: 한 셀에서 좋아요가 가장 많은 사진. 셀 위에 미리보기로 표시한다
+    detail:
+      - 대표 사진이 바뀌는 것은 파일을 새로 만드는 것이 아니라 가리키는 대상이 바뀌는 것이다
+    avoid: [썸네일, 커버]
+
+  - ko: 공개 동선
+    en: public_trail
+    context: social
+    definition: 전체 공개로 전환된 여행의 동선과 후기
+    detail:
+      - 좋아요를 받을 수 있고 다른 사용자가 일정으로 복사할 수 있다
+    avoid: [루트, 공개경로, 여행기]
+
+  # ---------- reward ----------
+  - ko: 꿀
+    en: honey
+    context: reward
+    definition: STOG의 포인트 단위. 캐릭터 STOBEE의 세계관에서 온 명칭
+    avoid: [포인트, 코인, 마일리지]
+
+  - ko: 제휴처
+    en: partner
+    context: reward
+    definition: 홍보비를 지불하고 꿀 배지 노출을 받는 사업자 또는 시설
+    detail:
+      - 대회 데모에서는 실제 계약 없이 전북 공공시설을 가정 시나리오로 사용한다
+    avoid: [광고주, 스폰서, 가맹점]
+
+  - ko: 쿠폰
+    en: coupon
+    context: reward
+    definition: 꿀 배지 셀에서 체류 조건을 충족하면 발급되는 할인 또는 이용권
+    detail:
+      - 하루 1회 발급하며 제휴처별 일일 수량 한도를 둔다
+      - 수량 소진 시 해당 셀의 배지를 비활성 표시로 바꾼다
+    avoid: [바우처, 티켓, 리워드]
+
+  - ko: 쿠폰 사용 확정
+    en: coupon_redeem
+    context: reward
+    definition: 매장 QR을 스캔해 쿠폰이 실제로 사용된 시점
+    detail:
+      - 제휴처 정산은 발급이 아니라 이 시점을 기준으로 한다
+      - 실패 시 꿀을 즉시 롤백한다
+    avoid: [사용처리, 소진, 정산]
+
+  - ko: 거리 후보
+    en: street_candidate
+    context: reward
+    definition: 상가업소 공공데이터로 추출한 이름 없는 인접 셀 군집
+    detail:
+      - 카페, 음식점, 주점 밀도를 기준으로 자동 생성한다
+    avoid: [클러스터, 상권, 구역]
+
+  - ko: 거리
+    en: street
+    context: reward
+    definition: 사용자 제보와 투표로 이름이 확정된 거리 후보
+    detail:
+      - 웨리단길, 객사처럼 행정구역이나 공식 관광지 경계와 일치하지 않는 통용 지역명을 담는다
+      - 사진 수, 방문 수, 좋아요로 경계를 계속 갱신한다
+    avoid: [골목, 상권명, 지역명]
+
+  # ---------- profile ----------
+  - ko: 성향 축
+    en: axis
+    context: profile
+    definition: 여행 취향을 구성하는 6개 차원
+    values: [nature, history, local, food, festival, record]
+    avoid: [카테고리, 태그, 관심사]
+
+  - ko: 성향 유형
+    en: traveler_type
+    context: profile
+    definition: 상위 2개 성향 축의 조합으로 확정되는 사용자 유형
+    values:
+      - en: nature
+        ko: 숲길 탐험가
+      - en: history
+        ko: 시간 여행자
+      - en: local
+        ko: 로컬 수집가
+      - en: food
+        ko: 미식 기행가
+      - en: festival
+        ko: 축제 유랑자
+      - en: record
+        ko: 감성 아카이버
+    avoid: [여행MBTI, 페르소나, 캐릭터]
+
+  - ko: 온보딩 설문
+    en: onboarding_survey
+    context: profile
+    definition: 성향 유형을 판정하는 11문항 설문
+    detail:
+      - 선택형 5문항과 공감도 6문항으로 구성한다
+      - 선택형 70퍼센트, 공감도 30퍼센트로 정규화 후 합산한다
+      - 동점 시 선택형 1번 문항에서 고른 축을 우선한다
+    avoid: [테스트, 진단, 퀴즈]
+
+open_items:
+  - id: G-01
+    question: 캐릭터 STOBEE를 UI 텍스트에서 어떻게 지칭할지 (스토비 / STOBEE / 혼용)

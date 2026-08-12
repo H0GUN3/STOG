@@ -1,0 +1,11 @@
+meta:
+  document: changelog
+  project: STOG
+  version: 0.1
+  description: 스펙 변경 이력. 최신 항목을 아래에 추가한다
+
+changes:
+  - "2026-08-11 | users와 auth_accounts를 분리하고 local 저장 규칙 추가 | 모든 로그인 제공자를 같은 구조로 처리하면서 비밀번호 저장 범위를 제한 | FE, BE, DB"
+  - "2026-08-11 | 그룹장 관리 권한과 참여자 일정 편집 및 변경 이력 권한 명시 | 참여자 관리와 여행 내부 활동 권한을 분리 | FE, BE, DB"
+  - "2026-08-11 | 독립 AI 서버를 확정안에서 후보안으로 변경 | AI 기능의 실행 경계가 아직 미결정 | BE, AI"
+  - "2026-08-11 | 공유 담기 share_import와 내보내기 share_export 용어 분리 | 반대 방향 동작의 구현 혼동 방지 | FE, BE, AI"

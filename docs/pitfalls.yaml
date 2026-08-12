@@ -1,0 +1,343 @@
+meta:
+  document: pitfalls
+  project: STOG
+  version: 0.1
+  authority: advisory
+  depends_on: [glossary.yaml, product.yaml, architecture.yaml, conventions.yaml]
+  description: >-
+    역할별로 실제 손실이 발생하는 함정 목록.
+    각 항목은 무엇을 하지 말라가 아니라 왜 그것이 손실을 만드는지를 담는다.
+  how_to_use: 자기 파트를 시작하기 전에 해당 역할 섹션을 읽는다. 새 함정을 만나면 여기에 추가한다
+
+severity:
+  high: 발견이 늦으면 되돌리는 데 하루 이상 걸린다
+  medium: 고칠 수 있지만 재작업이 발생한다
+  low: 알고 있으면 처음부터 피할 수 있다
+
+common:
+  - id: P-C01
+    severity: high
+    trap: 문서에 없는 판단을 코드에서 임의로 내린다
+    why: 다른 역할이 그 판단을 모른 채 반대 방향으로 구현한다. 병합 시점에야 드러난다
+    do: conventions.yaml의 exception_handling 절차를 따른다
+
+  - id: P-C02
+    severity: medium
+    trap: glossary에 없는 용어를 코드나 UI에 도입한다
+    why: 같은 대상을 셀과 블록과 육각형으로 부르기 시작하면 검색과 리뷰가 무너진다
+    do: 용어를 glossary에 먼저 추가한 뒤 사용한다
+
+  - id: P-C03
+    severity: high
+    trap: 근거 없이 정한 숫자를 코드에 상수로 박는다
+    why: 심사에서 왜 30분이고 왜 50m인지 물으면 답할 수 없다
+    do: product.yaml의 tuning_parameters에 두고 설정값으로 읽는다
+
+  - id: P-C04
+    severity: high
+    trap: 이미 제외하기로 한 기능을 좋은 아이디어라며 다시 만든다
+    why: 혼잡 예측, 계층형 셀, 웹, 사진 포인트는 모두 검토 후 제외된 것이다
+    do: product.yaml의 decisions에서 rejected 항목을 먼저 확인한다
+
+app:
+  - id: P-A01
+    severity: high
+    trap: 공유 담기로 받은 파일을 content URI 그대로 저장한다
+    why: >-
+      URI 권한은 임시다. 며칠 뒤 열면 파일이 사라져 있거나 권한 오류가 난다.
+      원본 앱이 캐시를 지워도 마찬가지다
+    do: 공유 담기로 받는 즉시 앱 내부 저장소로 복사한다
+
+  - id: P-A02
+    severity: high
+    trap: 공유 담기 시점에 지도 검색과 좌표 매핑까지 처리한다
+    why: >-
+      사용자는 그 순간 다른 앱에 있다. 공유 시트가 닫히지 않고 멈춰 있으면 그것만 체감된다
+    do: 원본 저장과 텍스트 추출까지만 즉시 처리하고 검색은 백그라운드로 넘긴다
+
+  - id: P-A03
+    severity: medium
+    trap: 공유 담기 텍스트를 줄 번호나 빈 줄 개수로 파싱한다
+    why: 카카오맵과 네이버지도의 공유 형식은 공식 계약이 아니다. 앱 업데이트 한 번에 깨진다
+    do: EXTRA_TEXT, EXTRA_HTML_TEXT, EXTRA_STREAM, ClipData, getData를 모두 확인하고 실패 시 사용자 입력으로 폴백한다
+
+  - id: P-A04
+    severity: high
+    trap: 모든 GPS 콜백을 서버로 전송한다
+    why: 8시간 여행이면 수천 건이 된다. 셀 전환만 보내면 수십 건이다
+    do: 앱에서 셀을 계산하고 연속 2회 확인을 거친 전환만 전송한다
+
+  - id: P-A05
+    severity: high
+    trap: 위치를 서버에만 보내고 로컬에 남기지 않는다
+    why: 산이나 실내에서 네트워크가 끊기면 여행 기록에 구멍이 뚫린다. 여행 후에야 발견된다
+    do: 앱 로컬 DB에 먼저 저장하고 전송은 그다음이다. 실패하면 큐에 쌓아 재전송한다
+
+  - id: P-A06
+    severity: medium
+    trap: 지도 이동 중에 매 프레임 셀을 조회한다
+    why: 드래그 한 번에 요청이 수십 건 나간다
+    do: idle 이벤트에서만 조회하고 300ms 디바운스를 건다. 조회한 영역은 캐시한다
+
+  - id: P-A07
+    severity: medium
+    trap: 줌 아웃에서도 셀 폴리곤을 계속 그린다
+    why: 시 단위로 줌 아웃하면 폴리곤 수가 급증해 프레임이 떨어진다
+    do: 줌 12 이하에서 셀 레이어를 끄고 클러스터 마커로 전환한다
+
+  - id: P-A08
+    severity: medium
+    trap: 셀 상태마다 별도 컴포넌트를 만든다
+    why: 상태 조합이 늘어날 때마다 컴포넌트가 곱셈으로 늘어난다
+    do: CellView 하나에 background와 badges를 prop으로 넘긴다
+
+  - id: P-A09
+    severity: high
+    trap: 원본 4000x3000을 그대로 업로드한다
+    why: 장당 8에서 12MB다. 50장 여행이면 500MB가 사용자 데이터 요금으로 나간다
+    do: 앱에서 2048x1536과 640x480 두 장을 만들어 올린다
+
+  - id: P-A17
+    severity: medium
+    trap: 구글 로그인에 Google Sign-In SDK 예제를 따라 구현한다
+    why: 지원 종료 수순이라 새 프로젝트에서 deprecated API를 쓰게 된다
+    do: Credential Manager를 사용한다
+
+  - id: P-A12
+    severity: high
+    trap: 갤러리 사진의 EXIF 좌표를 별도 권한 없이 읽으려 한다
+    why: >-
+      안드로이드 10부터 갤러리 사진의 위치정보는 기본적으로 제거된 채 전달된다.
+      ACCESS_MEDIA_LOCATION을 선언하고 런타임 요청해야 원본 좌표를 읽을 수 있다.
+      모르면 모든 사진이 확인 불가로 나와 원인을 찾는 데 며칠이 걸린다
+    do: ACCESS_MEDIA_LOCATION 권한을 선언하고 요청한 뒤 ExifInterface로 읽는다
+
+  - id: P-A13
+    severity: high
+    trap: 인스타그램 게시를 위해 Graph API를 붙이려 한다
+    why: >-
+      비즈니스 또는 크리에이터 계정과 페이스북 페이지 연결이 필수이고 Meta 앱 심사가 2에서 4주다.
+      개인 계정은 API 접근 자체가 없다. 4주 일정 전체를 심사에 쓰게 된다
+    do: 내보내기는 ACTION_SEND 인텐트로 인스타그램 앱에 파일을 넘기는 데서 끝낸다. 게시는 사용자가 직접 한다
+
+  - id: P-A15
+    severity: high
+    trap: 내보내기에서 인스타그램에 file URI를 그대로 넘긴다
+    why: 안드로이드 7부터 FileUriExposedException으로 크래시한다
+    do: FileProvider로 content URI를 만들고 URI 권한을 명시적으로 부여한다
+
+  - id: P-A16
+    severity: medium
+    trap: 스토리 내보내기를 피드 내보내기와 같은 난이도로 잡는다
+    why: >-
+      ADD_TO_STORY는 Facebook App ID가 필요하고 기기와 버전에 따라 크래시가 보고된 사례가 있다.
+      피드 내보내기는 App ID도 필요 없고 훨씬 안정적이다
+    do: 피드 내보내기를 먼저 완성하고 스토리는 폴백을 붙여 나중에 추가한다
+
+  - id: P-A14
+    severity: low
+    trap: 인스타그램 내보내기 시 캡션을 코드로 채우려 한다
+    why: 안드로이드 인텐트로 넘긴 텍스트를 인스타그램이 무시한다. iOS와 다르다
+    do: 캡션은 사용자가 인스타그램 화면에서 입력하게 둔다
+
+  - id: P-A10
+    severity: medium
+    trap: 휴면 상태를 여행 종료로 처리한다
+    why: 카페에 두 시간 앉아 있으면 여행이 끊겨 하루가 두 개로 쪼개진다
+    do: dormant와 ended를 구분한다. 종료는 일정 종료일 자정에만 일어난다
+
+  - id: P-A11
+    severity: low
+    trap: 기록 중지 상태를 화면에 표시하지 않는다
+    why: 껐다는 것을 모르고 걸으면 그 구간이 통째로 비고 여행 후에야 알게 된다
+    do: 상단에 얇은 배너를 유지하고 탭하면 재개되게 한다
+
+server:
+  - id: P-S01
+    severity: high
+    trap: cells 테이블을 만들어 전북 전체 셀을 미리 넣는다
+    why: 셀은 좌표로 계산되는 값이다. 대부분 비어 있는 행이 수십만 개 생긴다
+    do: cell_id를 인덱싱된 컬럼으로만 다룬다
+
+  - id: P-S02
+    severity: high
+    trap: cell_id를 16진 문자열로 저장한다
+    why: H3 셀 인덱스는 64비트 정수다. 문자열은 인덱스가 커지고 비교가 느리며 나중에 바꾸려면 전체 마이그레이션이다
+    do: BIGINT로 저장한다
+
+  - id: P-S13
+    severity: high
+    trap: cell_id를 API 응답에 JSON 숫자로 내보낸다
+    why: >-
+      JSON 숫자의 안전 정수 상한은 2의 53승이고 해상도 10의 셀 값은 그보다 70배 크다.
+      자바스크립트 계열 클라이언트에서 예외 없이 끝자리만 바뀐다. 값이 틀린 채로 동작해 원인을 찾기 어렵다
+    do: DB는 BIGINT로 두고 API 경계에서 16진 문자열로 변환한다
+
+  - id: P-S03
+    severity: medium
+    trap: 화면 영역을 polyfill해서 얻은 셀 목록을 IN 절에 넣는다
+    why: 해상도 10에서 화면 하나에 셀 후보가 수천 개가 되어 쿼리가 감당하지 못한다
+    do: 좌표 범위로 조회하고 결과를 cell_id로 묶는다
+
+  - id: P-S04
+    severity: high
+    trap: 사진을 서버가 받아 GCS로 중계한다
+    why: 서버 대역폭이 소모되고 사진 한 장에 스레드가 몇 초씩 묶여 타임아웃이 발생한다
+    do: 서명 URL을 발급하고 앱이 GCS에 직접 올린다
+
+  - id: P-S05
+    severity: high
+    trap: DB에 사진 레코드를 먼저 만들고 GCS 업로드를 나중에 한다
+    why: 업로드가 실패하면 존재하지 않는 파일을 가리키는 레코드가 남아 화면이 깨진다
+    do: GCS 업로드 성공 후 메타데이터를 저장한다. 반대 순서는 복구가 불가능하다
+
+  - id: P-S06
+    severity: high
+    trap: Spring @Scheduled로 공공데이터 동기화를 돌린다
+    why: Cloud Run은 요청이 없으면 인스턴스를 0으로 축소한다. 스케줄러가 실행될 인스턴스가 없어 조용히 멈춘다
+    do: Cloud Scheduler가 Cloud Run Job을 깨우게 한다
+
+  - id: P-S07
+    severity: medium
+    trap: 모든 외부 API에 같은 타임아웃을 건다
+    why: 지도 검색 3초와 AI 일정 생성 15초는 성격이 다르다. 하나로 맞추면 어느 한쪽이 반드시 터진다
+    do: architecture.yaml의 resilience.timeouts를 따른다
+
+  - id: P-S08
+    severity: high
+    trap: 쿠폰 하루 1회 제한을 애플리케이션 코드로만 검사한다
+    why: 동시 요청이 들어오면 검사를 둘 다 통과해 두 장이 발급된다
+    do: coupons에 UNIQUE partner_id user_id issued_date 제약을 건다
+
+  - id: P-S09
+    severity: medium
+    trap: 꿀 잔액 컬럼을 직접 증감한다
+    why: 롤백할 때 무엇을 얼마나 되돌려야 하는지 추적할 수 없다
+    do: honey_ledger에 증감 행만 쌓고 잔액은 그 캐시로 둔다
+
+  - id: P-S14
+    severity: high
+    trap: 카카오 키 해시를 디버그 빌드 것만 등록한다
+    why: 디버그와 릴리스의 키 해시가 다르다. 개발 중에는 로그인이 되다가 배포 시점에 실패한다
+    do: 두 빌드의 키 해시를 모두 카카오 콘솔에 등록한다
+
+  - id: P-S15
+    severity: medium
+    trap: 구글 ID 토큰을 구글 서버에 물어봐서 검증한다
+    why: ID 토큰은 JWT라 공개키로 로컬 검증이 가능하다. 네트워크 왕복을 넣으면 로그인이 외부 API 타임아웃에 종속된다
+    do: 구글 공개키로 서명을 직접 검증한다
+
+  - id: P-S10
+    severity: high
+    trap: 네이버 API 시크릿을 APK에 넣는다
+    why: APK는 디컴파일된다. 키가 유출되면 quota가 소진되고 계정이 정지될 수 있다
+    do: 모든 시크릿은 서버에만 둔다
+
+  - id: P-S11
+    severity: medium
+    trap: 정적인 공공데이터를 매 요청마다 외부 API로 조회한다
+    why: 문화재와 관광지는 대회 기간에 바뀌지 않는다. 응답 대기가 화면 지연으로 그대로 나타난다
+    do: 한 번 내려받아 DB에 적재하고 cell_id로 조회한다
+
+  - id: P-S12
+    severity: medium
+    trap: 보간으로 채운 셀을 실제 방문과 같이 취급한다
+    why: 안 간 곳이 방문으로 기록되고 쿠폰 조작 경로가 열린다
+    do: is_interpolated가 true인 구간은 방문 판정과 쿠폰 대상에서 제외한다
+
+db:
+  - id: P-D01
+    severity: high
+    trap: cell_id만 저장하고 좌표를 버린다
+    why: >-
+      셀 하나가 130m라 사진을 찍은 정확한 자리를 복원할 수 없다.
+      다른 사용자가 그 스팟을 찾아가는 것이 기능의 목적인데 그것이 불가능해진다.
+      군집 밀도 계산과 속도 기반 보간도 좌표가 있어야 한다
+    do: 모든 공간 데이터에 cell_id와 lat lng를 함께 저장한다
+
+  - id: P-D02
+    severity: medium
+    trap: PostGIS를 먼저 켜고 시작한다
+    why: 필요한 연산이 좌표 범위 조회와 이웃 셀 탐색뿐이라 확장이 하는 일이 없다
+    do: B-tree 인덱스로 시작하고 임의 폴리곤 판정이 필요해지면 그때 켠다
+
+  - id: P-D03
+    severity: medium
+    trap: 링크 블록과 검색 장소를 별도 테이블로 나눈다
+    why: 바구니를 조회할 때마다 조인이 두 번 붙는다
+    do: basket_items 하나에 item_type으로 구분해 담는다
+
+  - id: P-D04
+    severity: medium
+    trap: trip_members에 그룹장 role 컬럼을 추가한다
+    why: trips.owner_id와 권한 기준이 중복되어 두 값이 어긋날 수 있다
+    do: 그룹장은 trips.owner_id로 판정하고 trip_members에는 role 컬럼을 두지 않는다
+
+  - id: P-D05
+    severity: medium
+    trap: 여행 좋아요와 사진 좋아요를 별도 테이블로 만든다
+    why: 구조가 같은데 테이블이 둘이면 집계 쿼리가 갈라진다
+    do: likes에 target_type으로 구분한다
+
+  - id: P-D06
+    severity: low
+    trap: 셀 대표 사진을 매번 새로 만든다고 생각한다
+    why: 대표 사진이 바뀌는 것은 파일이 아니라 가리키는 대상이 바뀌는 것이다
+    do: cell_stats.top_photo_id를 갱신하고 photos에 cell_id like_count DESC 인덱스를 둔다
+
+  - id: P-D07
+    severity: medium
+    trap: 그룹 일정 변경을 덮어쓰기로 처리한다
+    why: 누가 무엇을 바꿨는지 추적할 수 없어 참여자 간 변경 충돌의 원인을 찾을 수 없다
+    do: itinerary_changes에 append only로 쌓는다
+
+ai:
+  - id: P-AI01
+    severity: high
+    trap: 초기부터 학습 기반 추천 모델을 만든다
+    why: 사용자 데이터가 0이다. 학습할 대상이 없다
+    do: 6축 가중치 스코어링 함수로 시작하고 데이터가 쌓이면 전환한다
+
+  - id: P-AI02
+    severity: high
+    trap: 성향 반영 비율을 코드에 하드코딩한다
+    why: 왜 0.3인지 설명할 근거가 없고 조정할 때마다 배포해야 한다
+    do: tuning_parameters의 profile_behavior_weight를 읽는다
+
+  - id: P-AI03
+    severity: medium
+    trap: 행동 점수를 전체 누적으로 계산한다
+    why: 과거 이벤트가 계속 남아 최근 관심사가 반영되지 않는다
+    do: 최근 50건 슬라이딩 윈도우로 집계한다
+
+  - id: P-AI04
+    severity: medium
+    trap: unresolved 상태의 바구니 항목을 동선 계산에 넣는다
+    why: 좌표가 없어 이동시간을 계산할 수 없고 일정 전체가 틀어진다
+    do: 동선 계산에서 제외하고 카드에 위치 미확인을 표시한다
+
+  - id: P-AI05
+    severity: medium
+    trap: A-03 결정 전에 독립 AI 서버와 DB 쓰기 경계를 구현한다
+    why: 독립 서비스 여부가 미정인데 경계를 먼저 고정하면 배포 구조와 데이터 정합성 책임을 다시 바꿔야 한다
+    do: 입력과 출력 계약만 먼저 정의하고 A-03 결정 후 실행 경계를 구현한다
+
+  - id: P-AI06
+    severity: high
+    trap: 여행 요약을 상세하게 생성한다
+    why: 누가 언제 어디에 얼마나 머물렀는지가 드러나면 개인정보 경계를 넘는다
+    do: 어디를 여행했는지 수준까지만 생성한다
+
+  - id: P-AI07
+    severity: medium
+    trap: 공유 담기로 받은 게시물에서 장소를 자동으로 확정한다
+    why: >-
+      게시물 하나에 장소가 여러 개이거나 장소와 무관할 수 있다.
+      틀린 장소가 일정에 들어가면 동선 전체가 무너진다
+    do: 후보로 제시하고 사용자 확인을 받는다. 후보가 하나여도 자동 확정하지 않는다
+
+  - id: P-AI08
+    severity: medium
+    trap: 다른 사용자가 확정한 장소 매핑을 즉시 자동 적용한다
+    why: 첫 사용자가 잘못 확정한 것도 그대로 전파된다
+    do: 확정 횟수가 쌓이기 전에는 제안 수준으로만 보여준다

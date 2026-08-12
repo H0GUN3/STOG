@@ -1,0 +1,294 @@
+meta:
+  document: product
+  project: STOG
+  version: 0.1
+  authority: canonical
+  depends_on: [glossary.yaml]
+  description: >-
+    STOG가 무엇이고 왜 만드는가에 대한 단일 기준.
+    용어는 glossary.yaml을 따른다. 기술 선택은 architecture.yaml에서 다룬다.
+  rules:
+    - decisions 항목은 source가 user인 것을 변경하지 않는다
+    - 새로운 판단이 필요하면 open_items에 추가하고 임의로 결정하지 않는다
+
+identity:
+  name: STOG
+  origin: STEP + LOG
+  character: STOBEE
+  one_line: 걸어온 길과 그곳에서 본 것을 셀에 담아 두는 여행 기록 및 계획 서비스
+  competition:
+    name: 공공데이터 활용 전북 AI 경진대회
+    host: 구글 클라우드 교육
+  scope:
+    initial_region: 전북
+    long_term: 지역 제한 없음
+    note: 계획서에는 확장성 언급까지만 반영한다
+  target_user:
+    primary: 전북을 여행하는 국내 여행자
+    mobility: 도보와 대중교통 중심
+  stage_priority:
+    - rank: 1
+      stage: 여행 후
+      reason: 개인의 시간과 장소를 함께 기록하는 것이 서비스의 본질
+    - rank: 2
+      stage: 여행 전
+    - rank: 3
+      stage: 여행 중
+
+problem:
+  statements:
+    - id: P-01
+      text: 기존 여행앱은 랜드마크 중심이라 객사, 웨리단길처럼 실제로 사람들이 다니는 장소가 검색되지 않는다
+    - id: P-02
+      text: SNS나 영상에서 본 장소를 찾으려면 그 동네를 직접 둘러봐야 한다
+    - id: P-03
+      text: 목적지 주변 카페와 음식점을 별도 앱에서 다시 검색해야 한다
+    - id: P-04
+      text: 일정 순서 변경과 중간 삽입이 번거로워 계획 수정 비용이 크다
+    - id: P-05
+      text: 여행이 끝나면 기록이 사진첩에 흩어지고 장소와 연결되지 않는다
+  root_cause:
+    text: 통용되는 지역명은 행정구역이나 공식 관광지 경계와 일치하지 않아 어떤 공개 데이터셋에도 존재하지 않는다
+    consequence: 검색 기반 서비스는 원리적으로 이 공백을 메울 수 없다
+  validation:
+    method: 트리플과 젠트립의 사용자 리뷰 분석
+    findings:
+      - P-01과 P-03은 두 앱 모두에서 반복 지적되는 불만이다
+      - P-04는 두 앱의 최다 불만 영역이다
+      - 두 앱 모두 계획 기능은 강점으로 평가받고 예약과 사후 대응에서 신뢰를 잃는다
+    conclusion: 문제는 실재하며 기존 서비스의 구조적 한계에서 발생한다
+
+references:
+  - name: 트리플
+    solved: [일정과 동선 설계, 동행자 협업, 계획 올인원]
+    unsolved: [검색되지 않는 장소, 일정 순서 변경 시 지도 초기화, 예약과 환불 신뢰]
+    lesson: 계획 기능으로 쌓은 신뢰가 예약 사고 한 번으로 훼손된다. STOG의 쿠폰이 같은 위치에 있다
+
+  - name: 젠트립
+    solved: [숨은 명소와 로컬 정보의 양, 혼자 여행 편의 정보, 지역 단일 집중]
+    unsolved: [첫 사용 시 기능 과다, 일정 순서 변경 불편, 공유 담기 링크 실패]
+    lesson: 기능이 많으면 첫 진입에서 무엇을 눌러야 할지 알 수 없게 된다. STOG는 젠트립보다 기능이 많다
+
+  - name: Hexplorer
+    type: iOS 앱
+    fact:
+      - H3 육각 격자로 전 세계를 균등 면적 셀로 나눈다
+      - 백그라운드 GPS로 이동을 추적하고 커버리지에 따라 셀에 불이 들어온다
+      - 개발자가 어떤 데이터도 수집하지 않는다고 명시했다
+    implication: 서버가 없으므로 공유, 추천, 공공데이터 연동, 커뮤니티가 구조적으로 불가능하다
+    lesson: 육각형 커버리지 맵 자체는 이미 존재하는 아이디어다. 차별점은 육각형이 아니라 그 안에 무엇이 담기는가에 있다
+
+  - name: 셋로그
+    role: 참고 BM
+    lesson: 시간 단위로 일상을 올리듯 공간 단위로 기록을 남기는 형태
+
+  - name: tripstone
+    role: AI 일정 생성과 유료화 모델 참고
+
+  - name: visitgangnam
+    role: 블록과 관광정보 카드 디자인 참고
+
+  - name: loci social map
+    role: 서비스 형태 이해용 참고
+
+differentiation:
+  core_message: >-
+    공공데이터가 커버하지 못하는 공백을 사용자 행동 데이터로 메우고,
+    그 결과물을 다시 공공적 가치를 가진 지역 상권 데이터로 되돌려준다
+  claims:
+    - id: DF-01
+      vs: Hexplorer
+      text: Hexplorer는 셀을 채우는 앱이고 STOG는 셀에 담는 앱이다
+    - id: DF-02
+      vs: 트리플, 젠트립
+      text: 기존 앱은 자체 DB에 없으면 담을 수 없다. STOG는 공유 담기로 받아오고 없는 거리는 만들어낸다
+    - id: DF-03
+      vs: 전체
+      text: 검색이 아니라 사용자의 실제 이동과 사진에서 지역 정보가 생성된다
+
+solution:
+  street_naming:
+    purpose: P-01과 root_cause 해결
+    stages:
+      - stage: 1
+        name: 부트스트랩
+        method: 소상공인시장진흥공단 상가업소 정보로 카페, 음식점, 주점 밀도가 높은 인접 셀 군집을 자동 추출
+        output: 거리 후보
+      - stage: 2
+        name: 명명
+        method: 사용자 제보와 투표
+        output: 거리
+      - stage: 3
+        name: 검증과 유지
+        method: 사진 수, 방문 수, 좋아요로 경계를 갱신
+        fuel: 쿠폰이 사용자를 현장으로 보내 이 단계의 데이터를 만든다
+
+  reward_loop:
+    purpose: 여행 중 앱을 켜고 사진을 찍을 즉시 동기 제공
+    framing: 마케팅 비용이 아니라 데이터 수집 비용
+    partner_value: 노출이나 클릭이 아니라 실제 방문에만 과금된다
+    settlement_basis: coupon_redeem 시점
+    invariant: 제휴 여부는 좋아요, 방문 수, 불타는 셀 판정에 어떤 영향도 주지 않는다
+
+  planning:
+    intake: [검색, 공유 담기, 지도 셀]
+    arrangement: 카드 대시보드에서 순서 변경과 중간 삽입
+    ai_role: [실현 가능성 판단, 일정 조정 제안, 도보 및 대중교통 동선 생성]
+
+features:
+  - {id: F-01, ko: 회원가입과 로그인, context: social, priority: P0}
+  - {id: F-02, ko: 셀 렌더링, context: space, priority: P0, note: 콘텐츠가 있는 셀만 표시}
+  - {id: F-03, ko: 여행 모드와 위치 수집, context: record, priority: P0}
+  - {id: F-04, ko: 촬영 화면과 셀 저장, context: record, priority: P0, note: 인스타그램처럼 촬영 전용 화면으로 분리한다. 촬영 직후와 보관함에서 다운로드 버튼으로 기기 저장이 가능해야 한다}
+  - {id: F-05, ko: 일정 바구니, context: plan, priority: P0}
+  - {id: F-06, ko: 카드 대시보드, context: plan, priority: P0, note: 경쟁 앱 최다 불만 영역이자 데모 핵심 화면}
+  - {id: F-07, ko: 보관함, context: record, priority: P0}
+
+  - {id: F-08, ko: 공유 담기로 링크 블록 담기, context: plan, priority: P1, note: DF-02의 근거}
+  - {id: F-09, ko: AI 일정 검증과 동선 생성, context: plan, priority: P1}
+  - {id: F-10, ko: 공공데이터 아이콘 배지 셀, context: space, priority: P1}
+  - {id: F-11, ko: 방문과 통과 판정 및 후기 슬라이드, context: record, priority: P1}
+  - {id: F-12, ko: 공개 동선 피드와 좋아요, context: social, priority: P1}
+  - {id: F-24, ko: 캘린더, context: plan, priority: P1, note: 여행 일정을 잡는 화면이자 월별 여행 관리 뷰. 여행 모드 자동 활성화가 이 일정을 기준으로 동작한다}
+  - {id: F-25, ko: 사진 게시물과 사진 좋아요, context: social, priority: P1, note: 셀 대표 사진 선정의 근거가 된다}
+
+  - {id: F-13, ko: 꿀 배지 셀과 쿠폰 발급, context: reward, priority: P2}
+  - {id: F-14, ko: 쿠폰 QR 사용 확정과 롤백, context: reward, priority: P2}
+  - {id: F-15, ko: 그룹 여행, context: social, priority: P2, note: 그룹장만 초대 링크 생성과 참여자 삭제를 하고 모든 참여자는 일정 바구니와 여행 일정을 수정한다}
+  - {id: F-16, ko: 온보딩 설문과 성향 유형 판정, context: profile, priority: P2}
+  - {id: F-17, ko: 지역 행사 페이지와 알림, context: plan, priority: P2}
+  - {id: F-18, ko: 무장애 여행정보 표시, context: plan, priority: P2}
+  - {id: F-19, ko: 인스타그램 내보내기, context: record, priority: P2, note: 사진 파일을 인스타그램 편집 화면에 전달하는 데서 끝난다}
+
+  - {id: F-20, ko: 거리 후보 군집 추출, context: reward, priority: P3, note: 전주 1~2곳 사전 계산}
+  - {id: F-21, ko: 거리 명명과 투표, context: reward, priority: P3}
+  - {id: F-22, ko: 제휴처 대시보드와 정산, context: reward, priority: P3}
+  - {id: F-23, ko: 그룹 성향 기반 AI 피드백, context: profile, priority: P3}
+
+priority_levels:
+  P0: 심사위원이 직접 조작하는 경로. 결함을 남기지 않는다
+  P1: 없으면 STOG가 성립하지 않는 차별 기능. 완전 동작을 목표로 한다
+  P2: 화면과 로직을 완성하되 데이터 범위는 제한한다
+  P3: 실시간 연산 대신 사전 계산된 결과로 흐름을 보여준다
+
+assignment:
+  team: {lead_fe_be: 1, support: 1, db: 1, ai: 2, weeks: 4}
+  lead_fe_be:
+    features: [F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08, F-10, F-11, F-24]
+    note: P0 전체와 P1 다수를 단독으로 맡는다. F-24 캘린더는 F-03 여행 모드 자동 활성화의 전제라 함께 맡는다
+  support:
+    features: [F-12, F-15, F-17, F-19, F-25]
+    note: P0 경로와 코드가 겹치지 않는 소셜 및 플랜 계열
+  db:
+    features: [F-13, F-14]
+    note: 셀 스키마 설계와 리워드 도메인
+  ai:
+    features: [F-09, F-16, F-18, F-20, F-21, F-22, F-23]
+  risk:
+    id: R-01
+    text: P0 전체가 한 사람에게 집중되어 있어 해당 인원이 막히면 데모 경로가 정지한다
+    mitigation: F-06 카드 대시보드의 골격을 1주차 안에 완성해 가장 어려운 화면의 위험을 먼저 소진한다
+
+user_flows:
+  - id: UF-01
+    ko: 여행 전 계획
+    steps:
+      - 외부 앱에서 공유 담기로 장소를 바구니에 담는다
+      - 지도 검색으로 좌표를 매핑한다
+      - 바구니 항목을 일정 항목으로 옮기고 카드 대시보드에서 순서를 조정한다
+      - AI가 실현 가능성을 판단하고 조정을 제안한다
+      - 도보와 대중교통 동선을 확정한다
+
+  - id: UF-02
+    ko: 여행 중 기록
+    steps:
+      - 일정 시작일 자동 또는 중앙 버튼으로 여행 모드를 활성화한다
+      - 셀 전환이 감지될 때마다 동선이 채워진다
+      - 목표 셀에서 30분 이상 체류하면 방문으로 판정한다
+      - 셀을 벗어나면 통과로 처리하고 후기 슬라이드를 띄운다
+      - 중앙 버튼으로 사진을 촬영해 스팟과 셀에 저장한다
+      - 꿀 배지 셀에서 체류 조건을 충족하면 쿠폰이 발급된다
+      - 매장 QR을 스캔해 쿠폰 사용을 확정한다
+
+  - id: UF-03
+    ko: 여행 후 공유
+    steps:
+      - 일정 종료 시 여행 모드가 자동 비활성화된다
+      - 보관함에 여행이 쌓이고 지도에서 동선을 확인한다
+      - 사진이 게시물 형태로 정리된다
+      - 공개 범위를 전환한다
+      - 다른 사용자가 좋아요를 남기거나 일정으로 복사한다
+
+demo_scenario:
+  structure: UF-01, UF-02, UF-03 순서를 3막으로 구성한다
+  opening_requirement: 1막 첫 장면은 공유 담기로 시작한다
+  opening_reason: DF-02를 첫 30초에 보여주기 위함
+  closing_requirement: 마지막 막은 여행 후여야 한다
+  closing_reason: stage_priority 1순위와 일치시키기 위함
+  partner_setup: 실제 계약 없이 전북 공공시설을 가정 시나리오로 사용한다
+
+decisions:
+  - {id: D-01, topic: 셀 해상도, decision: H3 해상도 10 단일 고정, source: user, rationale: 지름 약 130m로 한눈에 보이는 시야 범위에 해당, rejected: [계층형 다중 해상도, 해상도 9]}
+  - {id: D-02, topic: 셀 저장, decision: 셀을 저장하지 않고 좌표에서 계산, source: user, rationale: 전북 전체를 미리 넣으면 대부분 비어 있는 행이 생김, rejected: [전 지역 셀 사전 생성]}
+  - {id: D-03, topic: 빈 격자 표시, decision: 제외, source: user, rationale: 구현 비용이 크고 커버리지 개념은 STOG의 방향이 아님, rejected: [전 화면 격자 렌더링]}
+  - {id: D-04, topic: 셀 전환 판정, decision: 같은 셀 연속 2회 감지 시 전환, source: user, rationale: GPS 오차로 인한 경계 진동 방지}
+  - {id: D-05, topic: 개발 플랫폼, decision: 네이티브 앱 단독, source: user, rationale: 4주 일정에서 웹 병행은 리스크, rejected: [앱과 웹 동시 개발]}
+  - {id: D-06, topic: 혼잡 예측, decision: 제거, source: user, rationale: 확보 가능한 데이터가 부정확, rejected: [CCTV 유동인구, 실시간 검색량]}
+  - {id: D-07, topic: 불타는 셀 판정, decision: 좋아요와 방문 수만 사용, source: user, rationale: 유동인구 데이터 신뢰도 부족}
+  - {id: D-08, topic: 이동수단, decision: 도보와 대중교통만 지원, source: user, rationale: 타깃 사용자 흐름과 일치, rejected: [자차 길찾기, 카카오 자동차 경로]}
+  - {id: D-09, topic: 외부 평점, decision: 사용하지 않음, source: user, rationale: 자체 행동 지표로 대체, rejected: [카카오 평점, 네이버 평점]}
+  - {id: D-10, topic: 여행 요약, decision: 어디를 여행했는지 수준의 요약만 유지, source: user, rationale: 상세 요약은 개인정보 경계에 접근, rejected: [여행 후 이야기 생성]}
+  - {id: D-11, topic: 쿠폰 발급 조건, decision: 체류 조건 충족 시 하루 1회, 제휴처별 일일 수량 한도, source: user, rationale: 규칙이 단순하고 연타와 계정당 상한 문제를 함께 해결, rejected: [사진 촬영 시 포인트 지급, 셀당 1일 1회]}
+  - {id: D-12, topic: 쿠폰 사용 인증, decision: 매장 QR 스캔, source: user, rationale: 사진 인증은 구현이 복잡, rejected: [사진 인증, 점주 코드 입력]}
+  - {id: D-13, topic: 제휴처 정산 기준, decision: 발급이 아닌 사용 확정 시점, source: user, rationale: 조작이 발생해도 제휴처에 비용이 전가되지 않음}
+  - {id: D-14, topic: 그룹 권한, decision: 그룹장만 초대 링크를 만들고 참여자를 삭제하며 모든 참여자는 일정 바구니 추가와 여행 일정 수정 및 변경 이력 조회를 할 수 있음, source: user, rationale: 참여자 관리 권한과 여행 내부 활동 권한을 분리한다}
+  - {id: D-15, topic: 그룹 기록 삭제, decision: 삭제 불가, 나가기만 가능, 마지막 참여자 이탈 시 자동 삭제, source: user, rationale: 개인 사진은 보관함에 남으므로 기록이 사라져도 개인의 기억은 유지됨}
+  - {id: D-16, topic: 동선 보간, decision: 평균 속도 시속 6km 기준으로 실선과 점선을 구분하고 점선 구간은 방문과 쿠폰에서 제외, source: user, rationale: 전북에 지하철이 없어 터널 대응 로직이 불필요}
+  - {id: D-17, topic: 위치 수집, decision: 50m 이동 필터 기반 콜백, source: user, rationale: 시간 주기 로직 없이 정지 시 자동으로 수집이 멈춤}
+  - {id: D-18, topic: 좌표 저장, decision: cell_id와 별개로 원본 좌표를 항상 저장, source: user, rationale: 스팟 노출, 지도 핀, 군집 밀도, 속도 계산에 필요}
+  - {id: D-19, topic: 부가 정보 범위, decision: 소규모 모임과 공공 프로그램 정보 제외, source: user}
+  - {id: D-20, topic: 설문 비중, decision: 선택형 70퍼센트, 공감도 30퍼센트, 정규화 후 합산, source: user, rationale: 선택형은 축 간 강제 비교로 상대 순위가 안정적, rejected: [공감도 70퍼센트 배분]}
+
+  - {id: D-21, topic: 무장애 정보 표시, decision: 장소 카드 속성으로 표시하고 셀 배지로는 넣지 않음, source: user, rationale: 배지가 4종이 되면 최대 2개 규칙이 빡빡해짐, rejected: [셀 배지 추가]}
+  - {id: D-22, topic: 그룹 사진 구분, decision: 사진에 촬영자를 남기고 보관함에 내 사진만 보기 필터를 둠, source: user}
+  - {id: D-23, topic: 여행 모드 상태, decision: active와 dormant와 ended 3단계, source: user, rationale: 1시간 무전환 시 종료하면 카페나 전시 관람 중 여행이 끊겨 하루가 두 개로 쪼개짐, rejected: [1시간 무전환 시 즉시 종료]}
+  - {id: D-24, topic: 배터리 보호, decision: 15퍼센트 이하에서 위치 전송을 멈추고 알림, source: user}
+  - {id: D-25, topic: 쿠폰 소진 표시, decision: 배지를 회색으로 바꾸고 탭하면 재발급 안내, source: user, rationale: 배지를 제거하면 제휴처 노출이 사라짐}
+  - {id: D-26, topic: 공유 담기 처리 시점, decision: 담기 단계는 og 태그만 파싱하고 좌표 매핑은 일정 배치 시점으로 미룸, source: user, rationale: 담을 때마다 검색하면 파이프라인이 무거워짐}
+  - {id: D-27, topic: 이미지 전용 게시물, decision: 자동 인식하지 않고 사용자에게 장소 이름을 입력받음, source: user, rationale: OCR은 정확도가 낮고 저장하는 사용자는 이미 상호명을 알고 있음, rejected: [OCR 파이프라인]}
+  - {id: D-28, topic: 개발 주의점 문서, decision: 개발 규칙과 분리해 별도 파일로 작성, source: user}
+
+  - {id: D-29, topic: 활동 카테고리 단위, decision: 여행 단위 속성으로 둠, source: user, rationale: 산책이나 런닝 같은 일상 기록도 그 자체가 하나의 여행 세션이므로 구간 분할이 불필요, rejected: [구간 단위 segments 테이블]}
+  - {id: D-30, topic: 성향 갱신 방식, decision: 자동 반영, source: user, rejected: [사용자 승인 방식]}
+  - {id: D-31, topic: 행동 점수 집계 범위, decision: 최근 50개 이벤트 슬라이딩 윈도우, source: user, rationale: 전체 누적 방식은 과거 이벤트가 계속 남아 갱신이 멈춤}
+  - {id: D-32, topic: 공유 방향 용어, decision: 외부 앱에서 STOG로 들어오는 동작은 공유 담기 share_import, STOG에서 외부 앱으로 나가는 동작은 내보내기 share_export로 구분, source: user, rationale: 외부 공유라는 표현은 두 방향으로 읽혀 서로 다른 기능을 만들 위험이 있음, rejected: [외부 공유]}
+
+deferred:
+  note: 현 단계에서는 틀만 정의하고 상세는 구현 단계에서 확정한다
+  items:
+    - {id: DF-A, topic: 공유 담기 파싱, owner: lead_fe_be, scope: 출처별 분기와 매핑 실패 폴백의 구체 구현}
+    - {id: DF-B, topic: 성향 자동 갱신, owner: ai, scope: 행동 로그의 축 분류와 반영 계수}
+
+tuning_parameters:
+  note: 코드에 상수로 박지 않고 설정값으로 분리한다. 실사용 데이터 확보 후 재조정 대상이다
+  items:
+    - {key: profile_behavior_weight, initial: 0.3, meaning: 축 점수에서 행동 점수가 차지하는 비중, rationale: 설문은 명시적 의사표현이므로 우위를 유지한다}
+    - {key: profile_window_size, initial: 50, meaning: 행동 점수 집계에 사용하는 최근 이벤트 수}
+    - {key: cell_transition_confirm, initial: 2, meaning: 셀 전환으로 인정하기 위한 연속 감지 횟수}
+    - {key: location_distance_filter_m, initial: 50, meaning: 위치 콜백을 받는 최소 이동 거리}
+    - {key: dormant_after_minutes, initial: 60, meaning: 셀 전환 없이 휴면으로 전환되기까지의 시간}
+    - {key: visit_dwell_minutes, initial: 30, meaning: 방문으로 인정하기 위한 체류 시간}
+    - {key: walk_speed_limit_kmh, initial: 6, meaning: 실선 보간을 허용하는 평균 속도 상한}
+
+out_of_scope:
+  - 웹 버전
+  - 자차 길찾기
+  - 혼잡도 예측
+  - 실시간 공동 편집
+  - 외부 평점 연동
+  - 마이크로서비스 구성
+  - 학습 기반 추천 모델
+  - 소규모 모임 정보
+  - 이미지 OCR 기반 장소 인식
+
+open_items: []
