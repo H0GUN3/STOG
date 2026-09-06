@@ -1,8 +1,6 @@
 <div align="center">
   <img src="docs/img/STOG_HOME_LOGO.png" alt="STOG" width="320">
 
-  <h1>STOG</h1>
-
   <p><strong>여행의 순간을 공간에 담고, 다음 여정을 설계하는 기록 서비스</strong></p>
 </div>
 
