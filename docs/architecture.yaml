@@ -1,0 +1,1716 @@
+meta:
+  document: architecture
+  project: STOG
+  version: 0.1
+  authority: canonical
+  depends_on: [glossary.yaml, product.yaml]
+  description: >-
+    STOG를 무엇으로 어떻게 만드는가에 대한 단일 기준.
+    용어는 glossary.yaml, 기능 정의와 우선순위는 product.yaml을 따른다.
+  rules:
+    - 스키마와 API를 바꾸려면 이 문서를 먼저 고친다
+    - 튜닝 가능한 숫자는 product.yaml의 tuning_parameters에만 둔다
+    - 여기에 없는 라이브러리나 서비스를 임의로 추가하지 않는다
+
+stack:
+  app:
+    platform: Android 단독
+    language: Kotlin
+    ui: Jetpack Compose
+    local_db: Room
+    map: Google Maps SDK for Android
+    h3: h3-java
+    camera: CameraX 1.6.1 Preview and ImageCapture
+    map_location:
+      foreground_display: Google Maps native My Location layer
+      permission: runtime ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION
+      reentry_camera: center and zoom once on the first location fix after each app resume
+      initial_zoom: product.tuning_parameters.location_initial_zoom
+      scope: foreground display first; trip tracking follows product decisions
+    cell_layer:
+      overlays: [h3_polygons, place_search_markers]
+      search_marker_policy: search markers do not suppress H3 polygon loading
+    local_persistence:
+      database: Room
+      account_isolation: required
+      persist_before_processing: [location_observation, visit_outbox, share_import]
+      visit_outbox:
+        ordering: fifo_per_account_and_trip
+        immutable_fields: [client_visit_id, trip_id, user_id, payload_fingerprint, payload]
+      share_import:
+        cloud_storage: forbidden
+        candidate_cardinality: zero_to_many
+        candidate_origin_states: [extracted, corrected, manual]
+        candidate_decision_states: [pending, confirmed, rejected]
+        cloud_sync: confirmed_or_manual_place_cards_only
+        cleanup: after_all_accepted_writes_acknowledged
+      set_log_outbox:
+        database: Room
+        physical_table: pending_set_logs
+        account_isolation: required
+        durable_before_network: true
+        immutable_fields: [client_upload_id, account_id, user_id, trip_id, source, original_path, thumbnail_path, source_path, original_size, thumbnail_size, original_sha256, thumbnail_sha256, latitude, longitude, accuracy_m, location_provenance, taken_at, caption, place_resolution_status, expected_place_id, visibility, public_consent, created_at]
+        mutable_delivery_fields: [outbox_state, retry_class, upload_stage, attempt_count, last_response_code, error_code, remote_photo_id, publication_status, acknowledged_at, cleanup_complete]
+        delivery: [signed_upload, direct_put, idempotent_photo_finalize, cleanup_after_ack]
+    rationale:
+      - 국내 초기 범위에서 Google 지도 표시와 Google Places/Routes를 같은 provider 축으로 사용한다
+      - 백그라운드 위치 수집과 센서 접근이 핵심 기능이라 플러그인 계층 없이 직접 제어해야 한다
+      - h3-java를 서버와 공유해 셀 판정 로직을 양쪽에서 동일하게 유지한다
+    rejected:
+      - {option: Flutter, reason: 위치와 배터리 정책 제어가 플러그인에 의존}
+      - {option: React Native, reason: 동일}
+      - {option: iOS 동시 개발, reason: 4주 단독 개발로 불가능}
+    travel_frontend:
+      visual_direction: modern premium map-based mobile app, clean draggable bottom sheet, soft rounded cards, black and pure-white contrast, STOG yellow point color, elegant Korean typography, minimal but information-rich, emotionally warm travel dashboard
+      home:
+        role: 현재 여행 단계에 필요한 실행
+        states:
+          - {state: empty, content: [STOBEE 여행 추천, 지금 가볼 만한 장소]}
+          - {state: upcoming, content: [여행 요약, 시작일까지 남은 날, 참여자, 여행 보기, 일정 주변 추천]}
+          - {state: active, content: [현재 날짜 일정, 다음 장소, 이동 정보, 방문 완료 action, 남은 일정, 접힌 완료 일정]}
+          - {state: completed, content: [최근 여행 요약, 보관함 진입]}
+        rule: 일정 전체 편집은 하지 않고 내 여행 workspace로 이동한다
+      my_trips:
+        role: 여행 계획과 관리
+        list_sections: [active, upcoming, completed]
+        classification:
+          source: [planned_start_date, planned_end_date, current_date]
+          current_date: device_local_date
+          rules:
+            - {condition: current_date < planned_start_date, section: upcoming}
+            - {condition: planned_start_date <= current_date <= planned_end_date, section: active}
+            - {condition: current_date > planned_end_date, section: completed}
+          missing_dates: all_only
+        workspace:
+          tabs: [itinerary, map, record]
+          itinerary: [day_selector, basket, selected_count, add_to_day, ordered_items, travel_time, save]
+          rule: 장소 검색은 포함하지 않고 basket에 이미 담긴 항목만 배치한다
+      stobee:
+        context: [trip_id, selected_day, current_trip_stage]
+        mutation: proposal_then_explicit_apply
+      discover:
+        surface: dedicated_full_screen
+        navigation: 하단 5개 navigation을 유지하고 발견을 active 상태로 표시
+        content: [public_trip_feed, public_trip_photo_feed]
+        scroll_owner: feed_list
+        trip_post_anatomy: [title, per_member_trails, trip_like_action, like_count, copy_to_existing_trip_day]
+        photo_post_anatomy: [author, location, photo, like_action, comment_action, bookmark_save, like_count, comment_count, optional_caption]
+        photo_post_actions:
+          keep: [like, comment, bookmark_save]
+          remove: [share_export]
+        saved_feed:
+          owner: server_api
+          source: photo_post.bookmark_save
+          account_scope: required
+          profile_surface: excluded
+        fixture_preview:
+          source: Android local deterministic posts and generated local media
+          allowed_actions: [like, comment, bookmark_save]
+          rule: server mutation success must not be implied before comment and saved_feed API contracts exist
+        refresh_owner: header_action
+      place_detail:
+        surface: existing_draggable_map_bottom_sheet
+        states:
+          default:
+            map_visible: true
+            content: [name, category, rating, review_count, opening_summary, distance, address, photos_max_2, bookmark_save]
+          expanded:
+            scroll_owner: detail_content
+            fixed_bottom_actions: []
+            content: [photo_header, name, category, rating, review_count, opening_status, address, phone, website, today_hours, weekday_hours]
+        missing_values:
+          null_string: forbidden
+          phone: hide
+          website: hide
+          photos: stog_default_place_image
+          opening_hours: hide_section
+          rating: hide
+          review_count: hide_count_only
+        provider_fields:
+          google_request_time_only: [rating, user_rating_count, business_status, open_now, next_close_time]
+          rule: 검색 순위·추천·Cell 판정에는 사용하지 않는다
+      implementation_stage:
+        current: my_trips_api_integrated
+        completed:
+          - 내 여행 목록과 일정 workspace가 GET /trips/me, basket, itinerary API를 같은 화면 흐름에서 사용한다
+          - 장소 검색에서 새 여행을 만들 때 시작일과 종료일을 함께 저장한다
+        remaining:
+          - 홈의 현재 여행 실행 화면과 여행 가이드 AI는 후속 API 연결 범위다
+        rule: 실제 API 응답이 연결되기 전에는 fixture가 네트워크 성공을 가장하거나 영속 변경을 표시하지 않는다
+
+  api_server:
+    language: Java
+    framework: Spring Boot
+    rationale:
+      - Spring Boot와 Java 생태계의 운영·DB 연동 자료가 충분하다
+      - 트랜잭션 롤백과 타임아웃이 프레임워크 기본 기능이라 직접 구현하지 않는다
+      - 서버 작업이 대부분 I/O 대기라 언어 실행 속도가 병목이 아니다
+    rejected:
+      - {option: Ktor, reason: 가볍지만 참고 자료가 적어 단독 개발 시 막히면 손실이 큼}
+      - {option: Node.js, reason: 앱과 언어가 달라 공유 이점이 사라짐}
+
+  ai_server:
+    status: undecided
+    question: AI 기능을 독립 서비스로 개발하고 배포할지 API 서버와 같은 실행 단위에 둘지 미정이다
+    independent_candidate:
+      language: Python
+      framework: FastAPI
+      h3: h3-py
+      rationale:
+        - AI 담당 2명이 독립적으로 개발할 수 있다
+        - 팀 분업선과 실행 경계를 맞출 수 있다
+      boundary_if_selected:
+        - AI 서버는 DB를 읽기만 한다
+        - 쓰기는 API 서버 API를 통해서만 수행한다
+    rule:
+      - A-03이 결정되기 전에는 독립 AI 서버를 확정 전제로 구현하지 않는다
+      - 알고리즘의 입력과 출력 계약은 실행 경계와 분리해 정의한다
+
+  database:
+    engine: PostgreSQL
+    version: 18.4
+    hosting:
+      development: local PostgreSQL
+      production: Cloud SQL
+    local_development:
+      database: stog_canonical_dev
+      application_user: stog_app
+      host: localhost
+      port: 5432
+      jdbc_url: jdbc:postgresql://localhost:5432/stog_canonical_dev
+      lifecycle: isolated_database_in_existing_local_cluster
+      isolation: >-
+        The canonical development target is a disposable isolated database in
+        the existing local PostgreSQL 18.4 cluster. C-drive persistence is
+        deferred as an environment optimization; setup must not alter the
+        legacy local stog database or Cloud SQL.
+    connection:
+      environment_variables: [DB_URL, DB_USERNAME, DB_PASSWORD]
+      password_storage: environment_only
+      android_direct_access: forbidden
+      access_boundary: Spring Boot backend only
+      profiles:
+        local:
+          default: true
+          database: localhost:5432/stog_canonical_dev
+          credentials: backend/.env
+        test:
+          database: localhost:5432/stog_backend_test
+          application_user: stog_backend_test
+          credentials: backend/.env.test
+          activation: test classpath forces profile test for direct JUnit and Gradle backend test task
+          access: disposable_automated_test_only
+          rule: >-
+            활성 profile은 test 하나만 허용하고 runtime과 Flyway URL 및 identity를
+            고정된 test-only 값으로 검증한 뒤에만 connection이나 migration을 시작한다.
+        cloud:
+          database: Cloud SQL stog_0
+          connection: Cloud SQL Auth Proxy localhost:5433
+          instance_connection_name: "team-05-504502:asia-southeast1:stog-postgre-dev"
+          environment_variables: [CLOUD_DB_URL, CLOUD_DB_USERNAME, CLOUD_DB_PASSWORD]
+          activation: SPRING_PROFILES_ACTIVE=cloud
+          access: protected_read_only_legacy_source
+          rule: migration과 데이터 변경을 실행하지 않는다
+        prod:
+          database: Cloud SQL stog_canonical
+          connection: local backend through Cloud SQL Auth Proxy
+          credentials: backend/.env for approved local runtime; Cloud Run environment variables or Secret Manager only after deployment approval
+          activation: SPRING_PROFILES_ACTIVE=prod,gcs-write
+          access: canonical_application_runtime
+      migration_rule:
+        tool: Flyway
+        order:
+          - 로컬 PostgreSQL에서 먼저 적용하고 검증한다
+          - 동일 애플리케이션 artifact의 같은 migration을 Cloud SQL에 적용한다
+        safety:
+          - 기존 Cloud DB를 초기화하지 않는다
+          - 적용된 migration 파일을 수정하지 않는다
+          - Cloud SQL을 로컬 개발 기본 DB로 사용하지 않는다
+          - Cloud SQL 적용 전 기존 schema와 Flyway history 충돌을 읽기 전용으로 확인한다
+          - cloud와 prod profile은 Flyway와 Hibernate schema 변경을 비활성화한다
+          - local migration은 Cloud SQL에 자동 적용하지 않는다
+          - automated backend test는 stog_backend_test 외 database와 test 외 profile을 connection 전에 거부한다
+          - P0 P1에서는 기능에 필요한 forward migration만 지정된 gate에서 적용한다
+          - Todo 4에서 V17 Preference traits 제약 교체와 V10 restore safety schema qualification을 새 forward migration으로 적용한다
+          - 적용된 Flyway V1부터 V17까지 수정하지 않는다
+      source_compatibility:
+        status: read_only_adapter
+        verified_database: stog_0
+        verified_schema_migrations: schema_migrations
+        source_tables: [travel_items, travel_item_external_refs, cells, cell_photos]
+        source_h3_resolution: 11
+        canonical_h3_resolution: 10
+        rule: >-
+          기존 Cloud 행은 재해석하거나 변경하지 않는다. 좌표가 있으면 canonical
+          H3 resolution 10을 별도로 계산하고, 기존 UUID cells와 resolution 11 값은
+          호환 조회용으로만 보존한다.
+        write_profile: cloud-write
+        write_rule: 별도 명시 승인이 있을 때까지 Cloud SQL과 GCS에는 쓰지 않는다
+    orm: Spring Data JPA / Hibernate
+    migration: Flyway
+    driver: PostgreSQL JDBC Driver
+    schema_management:
+      migration: Flyway
+      hibernate_ddl_auto: validate
+    postgis: false
+    postgis_rationale: >-
+      좌표에서 셀을 얻는 것은 H3의 순수 계산이고 셀 조회는 정수 비교다.
+      반경 검색은 gridDisk 이웃 탐색으로 대체하고 정확한 거리가 필요하면 후보 수십 건을 코드에서 계산한다.
+      임의 폴리곤 포함 판정이나 도형 교차가 필요해지면 그때 확장을 켠다.
+
+infrastructure:
+  provider: Google Cloud
+  services:
+    - {name: Cloud Run, use: API 서버와 독립 배포를 선택한 경우의 AI 서버, note: 무요청 시 인스턴스 0으로 축소}
+    - {name: Cloud SQL, use: PostgreSQL}
+    - {name: Cloud Storage, use: 사진 원본과 썸네일}
+    - {name: Cloud Build, use: main 머지 시 자동 빌드}
+    - {name: Artifact Registry, use: 컨테이너 이미지}
+  not_used:
+    - {name: Memorystore, reason: 앱 로컬 캐시로 충분}
+    - {name: Cloud CDN, reason: 데모 규모에서 불필요}
+    - {name: Pub/Sub, reason: 비동기 큐가 필요한 흐름이 없음}
+  local_dev:
+    database: PostgreSQL 18.4 isolated stog_canonical_dev database
+    host: localhost
+    port: 5432
+    isolation: database_boundary_in_existing_local_cluster
+    storage: GCS_BUCKET으로 선택하는 Cloud Storage 버킷
+    storage_rationale: 로컬 파일시스템을 쓰면 서명 URL 흐름을 검증할 수 없고 그 부분이 배포 후 가장 자주 깨진다
+  demo_note: Cloud Run traffic 또는 최소 인스턴스 변경은 P0 P1 실행 범위 밖이며 별도 승인이 필요하다
+
+execution_boundaries:
+  p0_p1:
+    backend_process: local
+    runtime_profiles: "prod,gcs-write"
+    database: Cloud SQL stog_canonical
+    object_storage: GCS
+    protected_legacy_profile: cloud
+    protected_legacy_database: Cloud SQL stog_0
+    cloud_run_traffic: deferred
+    canonical_cleaning:
+      owner: agent
+      target: localhost:5432/stog_canonical_dev
+      status: complete
+      exclusive_plan: .omo/plans/stog-canonical-db-cleaning.md
+      forbidden_elsewhere: true
+    backend_tests:
+      profile: test
+      database: localhost:5432/stog_backend_test
+      identity: stog_backend_test
+      lifecycle: disposable_and_removed_after_suite
+      forbidden_profiles: [local, cloud, prod, gcs-write, cloud-write, local-import, catalog-refresh]
+      guard_timing: before_datasource_or_flyway_connection
+    forward_migrations:
+      feature_required: named_gates_only
+      v17_preference_traits_constraint: forward_fix_at_todo_4
+      v10_restore_safety: forward_fix_at_todo_4
+      todo_4:
+        catalog_contract: V18__repair_catalog_validation_contract.sql
+        recording_contract: V19__add_member_recording_and_visit_idempotency.sql
+      f_12:
+        public_trip_copy_contract: V28__add_public_trip_copy_receipts.sql
+      f_04:
+        finalized_photo_place_immutability: V30__make_finalized_photo_place_immutable.sql
+        referenced_photo_place_delete_restriction: V31__restrict_deletion_of_referenced_photo_places.sql
+      trip_deletion:
+        aggregate_history_cascade: V44__allow_trip_delete_cascade_through_history.sql
+        aggregate_proposal_cascade: V45__allow_trip_delete_cascade_through_proposals.sql
+        rule: trip 부모 삭제의 FK cascade만 append-only child 삭제를 허용하고 직접 history UPDATE·DELETE는 계속 거부한다
+      applied_v1_v17_edits: forbidden
+
+portability:
+  configuration:
+    database: environment_variables_and_profiles
+    storage_bucket: GCS_BUCKET
+    external_service_addresses: environment_variables_and_profiles
+    rule: DB 접속 정보, storage bucket, 외부 서비스 주소를 source code에 저장하지 않는다
+  schema:
+    source_of_truth: Flyway migrations
+    runtime_ddl: hibernate_ddl_auto_validate
+    rule: local과 Cloud SQL은 같은 migration history를 기준으로 schema를 재생성한다
+  object_storage:
+    database_columns: [photos.original_key, photos.thumb_key]
+    value_type: object_key
+    rule: provider-independent object_key만 저장하고 local absolute path, bucket URL, signed URL은 저장하지 않는다
+  vector_storage:
+    status: deferred
+    implementation: no embedding model, pgvector, or vector database in the current scope
+    migration_rule: Cloud 환경에서 재생성 또는 이관할 수 있도록 provenance를 보존한다
+    required_metadata: [embedding_model, embedding_version, source_entity_type, source_entity_id]
+
+database_schema:
+  conventions:
+    id: BIGSERIAL
+    cell_id: BIGINT
+    cell_id_rationale: H3 셀 인덱스는 64비트 정수다. 16진 문자열로 저장하면 인덱스가 커지고 비교가 느려진다
+    cell_id_boundary: API 응답과 요청에서는 16진 문자열로 직렬화한다. glossary.yaml의 cell_id representation을 따른다
+    timestamps: TIMESTAMPTZ
+    coords: 위치가 확인된 데이터는 lat, lng를 저장하고 Cell 기능 참여 데이터만 같은 좌표에서 cell_id를 계산한다. 일반 검색·일정 장소의 cell_id는 null이다
+
+  tables:
+    - name: users
+      columns: [id, nickname, preference_scores jsonb, travel_style_scores jsonb, honey_balance, is_moderator, created_at]
+      defaults:
+        is_moderator: false
+      authority:
+        is_moderator: operator_only
+      admin_ui: false
+      constraints:
+        - is_moderator can be changed only by an operator outside the application API
+        - preference_scores는 nature, culture, food, shopping, experience, relaxation 키를 가진다
+        - travel_style_scores는 localness, crowd_tolerance, pace, spontaneity, activity_intensity, novelty_seeking, travel_effort_tolerance 키를 가진다
+        - 두 score object의 값은 모두 0 이상 1 이하이며 trip_context를 포함하지 않는다
+      note: >-
+        로그인 제공자와 무관한 사용자 프로필이다. Preference와 Travel Style은 장기 점수이며
+        하나의 traveler_type을 만들지 않는다. preference_scores와 travel_style_scores는
+        기존 API 호환 projection으로 유지하고, 설문 canonical 값은 user_preferences와
+        user_travel_styles에 저장한다. honey_balance는 원장 합계의 캐시이고 moderator
+        권한을 위한 admin UI는 없다
+
+    - name: user_preferences
+      columns: [user_id, nature, culture, food, shopping, experience, relaxation, updated_at]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - 모든 score는 0 이상 1 이하
+      note: 정밀 설문 또는 이후 검증된 근거로 계산된 Preference 6축 canonical profile
+
+    - name: user_travel_styles
+      columns: [user_id, localness, crowd_tolerance, pace, spontaneity, activity_intensity, novelty_seeking, travel_effort_tolerance, updated_at]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - 모든 score는 0 이상 1 이하
+      note: 정밀 설문 또는 이후 검증된 근거로 계산된 Travel Style 7변수 canonical profile
+
+    - name: user_survey_responses
+      columns: [id, user_id, survey_version, survey_type, answers jsonb, preference_scores jsonb, travel_style_scores jsonb, completed_at, created_at]
+      enums:
+        survey_version: [v1]
+        survey_type: [cold_start, precision]
+      indexes: ["(user_id, survey_version, survey_type) UNIQUE", "(user_id, completed_at DESC)"]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - answers는 backend가 문항별 허용값과 응답 범위를 검증한 JSON object다
+      note: 초기 5문항과 정밀 13문항의 원본 답변 및 결정론적 계산 결과를 보존한다
+
+    - name: profile_evidence
+      columns: [id, user_id, trip_id, evidence_type, source, payload jsonb, created_at]
+      enums:
+        evidence_type: [preference, travel_style, trip_context]
+        source: [onboarding, behavior, conversation]
+      nullable: [trip_id]
+      indexes: ["(user_id, created_at DESC)", "(user_id, evidence_type, created_at DESC)", "(trip_id)"]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - trip_id REFERENCES trips(id) ON DELETE SET NULL
+        - trip_context evidence는 trip_id가 필수다
+      note: >-
+        Qwen 해석 또는 초기 설문에서 나온 근거를 저장한다. payload는 backend가
+        allowlist와 score 범위를 검증한 뒤에만 profile score 또는 trip_context에 반영한다.
+        Trip Context 근거는 Preference·Travel Style score 갱신에 사용하지 않는다.
+
+    - name: auth_accounts
+      columns: [id, user_id, provider, provider_user_id, password_hash, created_at]
+      enums:
+        provider: [local, google, kakao, naver]
+      nullable: [password_hash]
+      indexes: ["(provider, provider_user_id) UNIQUE"]
+      constraints:
+        - local 계정은 password_hash가 필수이고 소셜 계정은 null이다
+      note: >-
+        모든 로그인 수단을 같은 구조로 저장한다. provider_user_id는 local이면 소문자로 정규화한 이메일이고,
+        소셜 로그인이면 제공자가 반환한 사용자 식별자다. 비밀번호 원문은 저장하지 않는다
+
+    - name: source_user_mappings
+      columns: [source_user_uuid, user_id, created_at]
+      pk: [source_user_uuid]
+      indexes: ["(user_id)"]
+      constraints: ["source_user_uuid UNIQUE", "user_id REFERENCES users(id) ON DELETE RESTRICT"]
+      note: >-
+        기존 Cloud UUID와 canonical BIGSERIAL users.id의 소유권 연결을 보존하는
+        로컬 매핑 기록이다. source_user_uuid는 Cloud source의 UUID를 그대로
+        보존하고, 이 표를 채우는 Cloud import는 별도 승인을 받은 뒤에만 수행한다.
+
+    - name: refresh_tokens
+      columns: [id, user_id, token_hash, expires_at, revoked_at, replaced_by_id, created_at]
+      indexes: ["(token_hash) UNIQUE", "(user_id, expires_at)"]
+      note: >-
+        원문 token은 응답 시 한 번만 전달하고 SHA-256 hash만 저장한다.
+        재발급은 새 행 생성과 기존 행 revoked_at 및 replaced_by_id 갱신을 한 transaction에서 수행한다.
+
+    - name: oauth_login_tickets
+      columns: [id, provider, provider_user_id, nickname, token_hash, expires_at, consumed_at, created_at]
+      indexes: ["(token_hash) UNIQUE"]
+      note: >-
+        네이버 프로필 검증 후 발급하는 5분 유효 1회용 ticket이다.
+        원문 ticket은 저장하지 않고 교환 성공 시 consumed_at을 즉시 기록한다.
+
+    - name: trips
+      columns: [id, owner_id, title, activity_type, mode, visibility, is_group, region_code, planned_start_date, planned_end_date, started_at, ended_at, trip_context jsonb, created_at]
+      enums:
+        activity_type: [walk, run, date, tour, etc]
+        mode: [active, dormant, ended]
+        visibility: [public]
+        region_code: [JEONBUK, JEONJU, GUNSAN, IKSAN, JEONGEUP, NAMWON, GIMJE, WANJU, JINAN, MUJU, JANGSU, IMSIL, SUNCHANG, GOCHANG, BUAN]
+      note: >-
+        activity_type은 여행 단위 속성이다. 구간 분할하지 않는다.
+        여행 visibility는 public으로 고정한다. 사진의 private·group visibility는 별도로 유지한다.
+        그룹 여행에서는 owner_id가 그룹장이며 초대 링크 생성과 참여자 삭제 권한의 단일 기준이다.
+        trip_context는 current_energy, available_time, weather, crowd_level,
+        companion_type, transport_available, mobility_constraint, trip_mode를 담고
+        해당 여행에서만 유효하다. users의 장기 프로필 점수로 역산하지 않는다.
+
+    - name: trip_members
+      columns: [trip_id, user_id, joined_at, left_at]
+      pk: [trip_id, user_id]
+      note: >-
+        role 컬럼을 두지 않는다. 그룹장은 trips.owner_id로 판정한다.
+        그룹장과 참여자는 일정 바구니 추가와 여행 일정 수정 권한이 같다
+
+    - name: trip_member_collection_states
+      columns: [trip_id, user_id, collector_state, permission_state, sync_cursor, mode_version, collector_started_at, updated_at]
+      pk: [trip_id, user_id]
+      enums:
+        collector_state: [inactive, starting, active, dormant, blocked, ended]
+        permission_state: [unknown, granted, denied, revoked]
+      constraints:
+        - trip_id and user_id reference one active trip_members membership
+        - mode_version increases on every accepted state transition
+      note: >-
+        공유 trips.mode와 분리된 참여자별 수집 상태다. 한 참여자의 권한·배터리·로그아웃·동기화 실패는
+        다른 참여자의 상태를 바꾸지 않으며 trips는 최소 한 참여자의 collector가 시작된 뒤 active가 된다.
+
+    - name: visits
+      columns: [id, trip_id, user_id, client_visit_id, payload_fingerprint, cell_id, lat, lng, entered_at, left_at, status, is_interpolated, created_at]
+      enums:
+        status: [passed, visited]
+      indexes: ["(cell_id)", "(trip_id, entered_at)", "(trip_id, user_id, client_visit_id) UNIQUE"]
+      constraints:
+        - user_id is an active or event-time-valid trip member
+        - client_visit_id and payload_fingerprint are immutable
+        - "UNIQUE (trip_id, user_id, client_visit_id)"
+      note: >-
+        is_interpolated가 true면 방문 판정과 쿠폰 대상에서 제외한다. 같은 key와 같은 payload 재전송은
+        최초 응답을 반환하고 다른 payload는 409로 거부한다. 같은 Cell과 시간의 방문도 참여자별로 보존한다.
+
+    - name: photos
+      columns: [id, trip_id, user_id, source, cell_id, lat, lng, taken_at, original_key, thumb_key, caption, like_count, visibility, moderation_status, created_at, finalize_trip_id, client_upload_id, finalize_fingerprint, original_size_bytes, original_sha256, thumb_size_bytes, thumb_sha256, finalize_visibility, finalize_moderation_status, place_id, place_name_snapshot, place_resolution_status, location_accuracy_m, location_provenance, public_consent, publication_status, finalize_place_id, finalize_place_name_snapshot, finalize_place_resolution_status, finalize_publication_status]
+      enums:
+        source: [camera, gallery]
+        visibility: [private, group, public]
+        moderation_status: [pending, approved, blocked]
+        finalize_visibility: [private, group, public]
+        finalize_moderation_status: [pending, approved, blocked]
+        place_resolution_status: [matched, no_match]
+        location_provenance: [camera_foreground, gallery_exif]
+        publication_status: [private, group, trip_not_public, moderation_pending, public]
+        finalize_place_resolution_status: [matched, no_match]
+        finalize_publication_status: [private, group, trip_not_public, moderation_pending, public]
+      defaults:
+        visibility: private
+        moderation_status: pending
+        like_count: 0
+        public_consent: false
+      nullable: [trip_id, cell_id, lat, lng, taken_at, caption, finalize_trip_id, client_upload_id, finalize_fingerprint, original_size_bytes, original_sha256, thumb_size_bytes, thumb_sha256, finalize_visibility, finalize_moderation_status, place_id, place_name_snapshot, place_resolution_status, location_accuracy_m, location_provenance, publication_status, finalize_place_id, finalize_place_name_snapshot, finalize_place_resolution_status, finalize_publication_status]
+      indexes:
+        - "(cell_id, like_count DESC)"
+        - "(trip_id)"
+        - "(user_id)"
+        - "(moderation_status, visibility)"
+        - "(user_id, finalize_trip_id, client_upload_id) UNIQUE WHERE finalize_trip_id IS NOT NULL AND client_upload_id IS NOT NULL"
+        - "(place_id) WHERE place_id IS NOT NULL"
+      constraints:
+        - trip_id REFERENCES trips(id) ON DELETE SET NULL
+        - user_id REFERENCES users(id) ON DELETE RESTRICT
+        - place_id REFERENCES places(id) ON DELETE RESTRICT
+        - finalize_place_id is a non-FK finalized place snapshot reference
+        - public_consent is NOT NULL and defaults to false
+        - lat and lng are both null or both non-null
+        - cell_id is non-null only when lat and lng are non-null
+        - finalization fields are either all null or a complete verified upload session with positive sizes, SHA-256 values, and allowed finalize_visibility/finalize_moderation_status
+        - client_upload_id is unique per user_id and finalize_trip_id when finalize_trip_id is non-null
+        - location_accuracy_m is null or nonnegative
+        - location_accuracy_m and location_provenance are both null, or coordinates and provenance are present
+        - location_provenance is camera_foreground or gallery_exif when present
+        - place_resolution_status matched requires place_id and a nonblank place_name_snapshot; no_match requires both null
+        - finalize_place_resolution_status matched requires finalize_place_id and a nonblank finalize_place_name_snapshot; no_match requires both null
+        - publication_status is private, group, trip_not_public, moderation_pending, or public when present
+        - finalized photo place_id and finalization contract fields are immutable
+        - a place referenced by photos.place_id cannot be physically deleted; quarantine preserves the immutable place identity and name snapshot
+        - finalize_publication_status is private, group, trip_not_public, moderation_pending, or public when present
+        - the photo immutability trigger protects identity, upload, visibility, moderation, place, provenance, consent, and publication snapshot fields on every photo row; V30 adds place_id and V31 restricts deletion of referenced places
+      note: >-
+        촬영 원본 source file은 기기 갤러리에만 남고, 서버에는 기기에서 만든 normalized original과
+        thumbnail 두 벌의 객체가 signed URL로 직접 올라간다.
+        like_count는 likes 집계의 캐시이며 공개 eligibility 판정이 아니다.
+        갤러리 업로드 사진은 EXIF 좌표가 없으면 cell_id가 null이며 지도에 표시되지 않고 여행 사진첩에만 남는다.
+        public trip에 업로드한 게시물은 public visibility로 정규화해 finalization 직후 발견 게시물로 노출한다.
+        moderation_status가 blocked인 사진만 공개 eligibility에서 제외하고, moderation 승인과
+        photo_public_grant는 발견 노출에 요구하지 않는다.
+        moderation_status transition은 moderator만 수행하고 photo_moderation_events에 append only로 남긴다.
+
+    - name: photo_upload_sessions
+      columns: [user_id, trip_id, client_upload_id, original_key, thumb_key, original_content_type, original_size_bytes, original_sha256, thumb_content_type, thumb_size_bytes, thumb_sha256, upload_fingerprint, expires_at, created_at]
+      pk: [user_id, trip_id, client_upload_id]
+      indexes: ["(original_key) UNIQUE", "(thumb_key) UNIQUE"]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - trip_id REFERENCES trips(id) ON DELETE CASCADE
+        - original_size_bytes and thumb_size_bytes are positive
+        - original_sha256, thumb_sha256, and upload_fingerprint are lowercase 64-character SHA-256 values
+        - expires_at is required
+      runtime: reserved_schema_not_used_by_current_photo_upload_or_finalize_service
+      note: >-
+        현재 PhotoService는 이 테이블에 행을 만들거나 읽지 않고 signed URL 발급과 finalize 검증을
+        직접 수행한다. 따라서 현재 Set Log 흐름에서 upload session 행은 생성되지 않으며,
+        이 예약 테이블에는 별도 immutable trigger 계약을 주장하지 않는다.
+
+    - name: places
+      columns: [id, name, category, lat, lng, cell_id, source, external_id, accessibility jsonb, catalog_status, public_cell_eligible, normalized_name, compact_name, created_at]
+      enums:
+        source: [google, kakao, naver, public_data, user]
+        catalog_status: [private_reference, public, quarantined]
+        category: [ATTRACTION, FOOD, CAFE, ACCOMMODATION, SHOPPING, TRANSPORT, SERVICE, OTHER]
+      defaults:
+        catalog_status: private_reference
+      nullable: [lat, lng, cell_id, accessibility, external_id]
+      indexes:
+        - "(cell_id)"
+        - "(cell_id) WHERE public_cell_eligible AND catalog_status = 'public'"
+        - "(lat, lng)"
+        - "(normalized_name) USING GIN gin_trgm_ops"
+        - "(compact_name) USING GIN gin_trgm_ops"
+      constraints:
+        - lat and lng are both null or both non-null
+        - cell_id is non-null only when lat and lng are non-null
+      public_eligibility:
+        all_of: [catalog_status=public, public_cell_eligible, active_place_source_record, applicable_license_snapshot]
+      note: >-
+        accessibility는 무장애 정보다. 셀 배지가 아니라 장소 카드에 표시한다.
+        category는 장소의 기능만 나타내고 Preference·Travel Style·Trip Context와 분리한다.
+        public_cell_eligible은 행정 지정 또는 한국관광공사·전북특별자치도 공식 관광 분류로
+        지역 특색 근거가 확인된 장소만 true다. 일반 검색·일정 장소는 lat·lng를 보존하고
+        cell_id를 null로 둔다. Google Places 결과는 policy가 허용하는 durable Place ID와
+        사용자 확인 기록만 남길 수 있다.
+
+    - name: events
+      columns: [id, provider, external_id, title, venue_name, formatted_address, latitude, longitude, starts_on, ends_on, detail_uri, image_uri, source_updated_at, status, created_at, updated_at]
+      enums:
+        status: [active, retired]
+      indexes: ["(provider, external_id) UNIQUE", "(starts_on, ends_on, latitude, longitude) WHERE status=active"]
+      constraints:
+        - provider and external_id identify one upstream event
+        - latitude and longitude are required and within coordinate bounds
+        - ends_on is greater than or equal to starts_on
+        - expired or withdrawn public events become retired rather than deleted
+      source: tourapi_searchFestival2
+      phase_one: public_nearby_read_only_cards
+
+    - name: basket_items
+      columns: [id, trip_id, added_by, client_item_id, payload_fingerprint, item_type, place_id, source, original_url, title, thumbnail_url, category, lat, lng, cell_id, status, added_at]
+      enums:
+        item_type: [place, link]
+        status: [resolved, manual, unresolved]
+      indexes: ["(trip_id, added_by, client_item_id) UNIQUE"]
+      constraints:
+        - client_item_id and payload_fingerprint are immutable
+        - "UNIQUE (trip_id, added_by, client_item_id)"
+      note: >-
+        검색으로 담은 장소와 공유 담기로 들어온 링크 블록을 한 테이블에 담아 조인을 줄인다.
+        연결된 place가 비Cell이면 lat·lng는 유지하고 cell_id는 null로 둔다. 같은 key와 같은 payload
+        재전송은 최초 응답을 반환하고 다른 payload는 409로 거부한다.
+
+    - name: itinerary_items
+      columns: [id, trip_id, basket_item_id, day_number, order_index, planned_arrival, planned_duration_min]
+      indexes: ["(trip_id, day_number, order_index)"]
+
+    - name: itinerary_changes
+      columns: [id, trip_id, user_id, action, payload jsonb, created_at]
+      indexes: ["(trip_id, created_at DESC)"]
+      note: >-
+        append only다. payload에 변경 전후 값을 남겨 그룹 여행 참여자가 변경 이력을 조회할 수 있게 한다
+
+    - name: cell_stats
+      columns: [cell_id, landmark_count, public_photo_count, public_photo_like_count, top_photo_id, updated_at]
+      pk: [cell_id]
+      visibility: public
+      rebuildable: true
+      projection_inputs: [licensed_landmark, eligible_public_photo, eligible_public_photo_like]
+      nullable: [top_photo_id]
+      indexes:
+        - "(public_photo_count DESC)"
+        - "(public_photo_like_count DESC)"
+      constraints:
+        - top_photo_id is null or references an approved eligible photo with coordinates in this cell
+      note: >-
+        sparse public rebuildable projection이다. licensed public catalog landmark 수와
+        public_photo_eligibility를 통과한 사진 수와 좋아요 수, top_photo_id만 저장한다.
+        개인 visit/photo 수와 viewer overlay는 저장하지 않으며 global projection 입력으로 사용하지 않는다.
+        빈 cell row를 미리 만들지 않는다.
+
+    - name: catalog_sources
+      columns: [id, source_key, name, provider_type, homepage_url, active, created_at]
+      pk: [id]
+      constraints: ["source_key UNIQUE"]
+      note: catalog_source는 반복 수집에서 안정적으로 식별할 수 있어야 한다
+
+    - name: license_snapshots
+      columns: [id, catalog_source_id, license_name, terms_url, reviewed_at, valid_from, valid_until, allows_public_discovery, reusable_fields jsonb, digest, created_at]
+      pk: [id]
+      nullable: [terms_url, valid_until]
+      constraints:
+        - catalog_source_id REFERENCES catalog_sources(id) ON DELETE RESTRICT
+        - digest UNIQUE
+        - valid_until is null or valid_until > valid_from
+        - allows_public_discovery requires reusable_fields to identify allowed exposed fields
+      indexes: ["(catalog_source_id, valid_from DESC)", "(catalog_source_id, valid_until)"]
+      note: license_snapshot은 source record와 source image가 공개에 사용할 수 있는 필드를 결정한다
+
+    - name: place_source_records
+      columns: [id, place_id, catalog_source_id, license_snapshot_id, external_id, source_digest, source_updated_at, active, imported_at, created_at]
+      pk: [id]
+      constraints:
+        - place_id REFERENCES places(id) ON DELETE CASCADE
+        - catalog_source_id REFERENCES catalog_sources(id) ON DELETE RESTRICT
+        - license_snapshot_id REFERENCES license_snapshots(id) ON DELETE RESTRICT
+        - "UNIQUE (catalog_source_id, external_id)"
+        - source_digest is not null
+      indexes: ["(place_id, active)", "(catalog_source_id, active)"]
+      public_eligibility_role: required
+      note: active record와 적용 가능한 license_snapshot이 public catalog의 근거다. rights가 불명확하면 active여도 공개하지 않는다
+
+    - name: place_source_images
+      columns: [id, place_source_record_id, source_image_id, source_url, license_snapshot_id, source_digest, reusable, created_at]
+      pk: [id]
+      nullable: [source_url]
+      constraints:
+        - place_source_record_id REFERENCES place_source_records(id) ON DELETE CASCADE
+        - license_snapshot_id REFERENCES license_snapshots(id) ON DELETE RESTRICT
+        - "UNIQUE (place_source_record_id, source_image_id)"
+        - reusable requires the license snapshot to allow this image field
+      indexes: ["(place_source_record_id)"]
+      note: provider photo bytes와 영구 provider photo URL을 catalog photo로 복사하지 않는다
+
+    - name: place_aliases
+      columns: [id, place_id, alias, normalized_name, compact_name, source_record_id, alias_source, created_at]
+      pk: [id]
+      constraints:
+        - place_id REFERENCES places(id) ON DELETE CASCADE
+        - source_record_id REFERENCES place_source_records(id) ON DELETE SET NULL
+        - "UNIQUE (place_id, normalized_name)"
+      indexes:
+        - "(normalized_name) USING GIN gin_trgm_ops"
+        - "(compact_name) USING GIN gin_trgm_ops"
+      note: 출처 또는 사용자 확인 근거가 있는 alias만 저장하며 exact alias가 fuzzy 결과보다 먼저 정렬된다
+
+    - name: place_details
+      columns: [place_id, address, description, contact jsonb, accessibility jsonb, opening_hours jsonb, date_overrides jsonb, cross_midnight, estimated_cost jsonb, parking_info jsonb, reservation_info jsonb, atmosphere jsonb, visit_minutes, visit_minutes_source, visit_minutes_override, traits jsonb, traits_source, traits_model, traits_updated_at, source_updated_at]
+      pk: [place_id]
+      constraints:
+        - place_id REFERENCES places(id) ON DELETE CASCADE
+        - cross_midnight is true only when opening_hours contains a validated overnight interval
+        - visit_minutes is positive when present
+        - traits keys are limited to nature, culture, food, shopping, experience, relaxation and stored only as evidence-backed boolean true values
+      note: >-
+        provider-neutral detail의 source/model/time provenance를 보존한다. source-derived 값과
+        override를 application constant로 바꾸지 않으며 date_overrides와 cross_midnight를 함께 검증한다.
+        traits는 장소 기능 category가 아니라 사용자 Preference와 매칭할 복수 특성이며 근거 없는 값이나
+        0부터 1까지의 추정 점수를 만들지 않는다.
+        parking_info·reservation_info·atmosphere는 출처 또는 사용자 확인 근거가 있을 때만 채우고
+        확인되지 않은 운영 정보와 비용은 null로 둔다. 대표 출처 사진은 place_source_images에서
+        license_snapshot과 reusable을 함께 검증한다.
+
+    - name: likes
+      columns: [user_id, target_type, target_id, created_at]
+      pk: [user_id, target_type, target_id]
+      enums:
+        target_type: [trip, photo]
+      indexes: ["(target_type, target_id)"]
+      note: 복합 기본키가 고유 사용자 좋아요를 보장한다. 여행 동선과 사진 게시물이 같은 구조를 공유한다. target validation은 service가 수행한다
+
+    - name: public_trip_copy_receipts
+      columns: [id, user_id, idempotency_key, source_trip_id, destination_trip_id, destination_day, payload_fingerprint, copied_item_count, destination_basket_item_ids, destination_itinerary_item_ids, itinerary_change_id, created_at]
+      indexes: ["(user_id, idempotency_key) UNIQUE"]
+      constraints:
+        - user_id REFERENCES users(id) ON DELETE CASCADE
+        - source_trip_id and destination_trip_id reference trips(id) ON DELETE RESTRICT
+        - destination_day is positive
+        - payload_fingerprint is immutable lowercase SHA-256 hex
+      note: >-
+        공개 여행 일정 복사의 최초 성공 응답을 보존한다. 같은 user_id와 idempotency_key의 같은
+        source·destination·day 재전송은 이 receipt를 반환하고 다른 payload 재사용은 409로 거부한다.
+
+    - name: photo_public_grants
+      columns: [id, photo_id, version, granted_by, granted_at, revoked_at, scope, created_at]
+      pk: [id]
+      defaults:
+        scope: [feed, like, cell_featured, signed_read]
+      constraints:
+        - photo_id REFERENCES photos(id) ON DELETE CASCADE
+        - granted_by REFERENCES users(id) ON DELETE RESTRICT
+        - "UNIQUE (photo_id, version)"
+        - revoked_at is null or revoked_at >= granted_at
+      indexes:
+        - "(photo_id) UNIQUE WHERE revoked_at IS NULL"
+        - "(photo_id, revoked_at)"
+        - "(photo_id, version DESC)"
+      active_grant_cardinality: one_per_photo
+      note: >-
+        소유자의 별도 public_grant다. revoke된 version은 보존하고 다음 승인 때 version을 증가시킨다.
+         grant는 기존 공개 동의 이력과 revoke audit을 보존하며 발견 eligibility에는 필요하지 않다
+
+    - name: photo_moderation_events
+      columns: [id, photo_id, moderator_id, from_status, to_status, reason, created_at]
+      pk: [id]
+      enums:
+        from_status: [pending]
+        to_status: [approved, blocked]
+      nullable: [reason]
+      constraints:
+        - photo_id REFERENCES photos(id) ON DELETE CASCADE
+        - moderator_id REFERENCES users(id) ON DELETE RESTRICT
+        - moderator_id belongs to users where is_moderator=true at transition time
+        - from_status=pending
+        - append only, no update or delete
+      append_only: true
+      indexes: ["(photo_id, created_at DESC)", "(moderator_id, created_at DESC)"]
+      note: pending에서 approved 또는 blocked로만 전환하며 transition과 event 기록은 한 transaction이다
+
+    - name: partners
+      columns: [id, name, cell_id, lat, lng, daily_quota, coupon_title, coupon_value, dwell_required_min, active]
+
+    - name: coupons
+      columns: [id, partner_id, user_id, issued_date, honey_cost, barcode, issued_at, expires_at, redeemed_at, status]
+      enums:
+        status: [issued, redeemed, expired, rolled_back]
+      constraints: ["UNIQUE (partner_id, user_id, issued_date)"]
+      indexes: ["(user_id, issued_at)", "(partner_id, issued_date)"]
+      note: >-
+        하루 1회 제한은 전역이 아니라 제휴처별이다. 사용자는 같은 날 서로 다른 제휴처에서 각각 1장을 받을 수 있다.
+        UNIQUE 제약이 이를 DB 수준에서 보장하므로 애플리케이션 로직에 의존하지 않는다.
+        그룹 여행에서도 쿠폰은 개인 소유다. 참여자가 각자 체류 조건을 충족해야 각자 발급된다.
+        barcode는 매장에서 제시하는 값이다
+
+    - name: honey_ledger
+      columns: [id, user_id, delta, reason, ref_id, created_at]
+      note: 잔액을 직접 수정하지 않고 증감 기록만 남긴다. 롤백은 반대 부호 행을 추가하는 것으로 처리한다
+
+    - name: street_candidates
+      columns: [id, name, "cell_ids BIGINT[]", poi_density, status, created_at]
+      enums:
+        status: [candidate, named, retired]
+
+    - name: street_name_votes
+      columns: [street_id, user_id, proposed_name, created_at]
+      pk: [street_id, user_id]
+
+    - name: behavior_events
+      columns: [id, user_id, event_type, raw_text, axis, created_at]
+      enums:
+        event_type: [search, basket_add, like, visit]
+      indexes: ["(user_id, created_at DESC)"]
+      note: 성향 갱신은 최근 50건만 조회한다
+
+object_storage:
+  provider: Google Cloud Storage
+  development_bucket: stog-media-dev
+  preserved_artifact_bucket: stog-dev-media
+  preserved_artifact_rule: 기존 JSON, JSONL, SQL 검증 artifact만 read-only로 보존하며 runtime 사진 read/write 대상으로 사용하지 않는다
+  access: Backend issues signed PUT URLs; Android uploads bytes directly
+  write_profile: gcs-write
+  required_environment_variables: [GCS_BUCKET, GCS_SIGNED_URL_TTL]
+  rule: gcs-write is never enabled by default and object metadata is saved only after upload
+
+api:
+  style: REST
+  serialization:
+    - key: cell_id
+      wire_type: 16진 문자열
+      db_type: BIGINT
+      rule: 컨트롤러 경계에서 h3ToString과 stringToH3로 변환한다
+      why: >-
+        JSON 숫자의 안전 정수 상한은 2의 53승 약 9곱하기10의15승이다.
+        해상도 10의 셀 값은 약 6곱하기10의17승으로 그보다 70배 크다.
+        숫자로 직렬화하면 자바스크립트 계열 클라이언트에서 오류 없이 끝자리만 손실된다
+    - key: id
+      wire_type: 숫자
+      note: BIGSERIAL 값은 안전 정수 범위 안에 머무르므로 변환하지 않는다
+  auth:
+    method: 앱 자체 로그인과 소셜 로그인 병행, 자체 JWT 발급
+    providers: [local, google, kakao, naver]
+    order: [local, google, kakao, naver]
+    order_rationale: >-
+      제공자마다 개발자 등록과 키 발급 절차가 따로 있다.
+      자체 로그인을 먼저 두면 심사용 계정을 미리 만들어 둘 수 있고 소셜 연동 지연에 막히지 않는다.
+      안드로이드에서 구글이 가장 빨리 붙고 카카오는 국내 실사용률이 높다.
+      네이버는 마지막에 추가해도 P0에 지장이 없다
+    common_result:
+      - 서버가 auth_accounts의 provider와 provider_user_id로 사용자를 찾거나 생성한다
+      - 로그인 성공 시 모든 제공자에 동일한 자체 JWT를 발급한다
+
+    local:
+      scope: 최소안
+      included: [회원가입, 로그인, 토큰 갱신]
+      excluded: [비밀번호 재설정, 이메일 인증]
+      excluded_rationale: >-
+        메일 발송 서비스 연동과 템플릿과 토큰 만료 처리가 따라온다.
+        P0가 아닌 곳에 4주 일정을 쓰지 않는다
+      ux_note: 회원가입 화면에 비밀번호를 잊으면 소셜 로그인을 이용하라고 안내한다
+      password_hash: BCrypt
+      app_sends: [email, password]
+      server_verify: >-
+        이메일의 앞뒤 공백을 제거하고 소문자로 정규화해 provider_user_id로 조회한 뒤 BCrypt 해시를 비교한다
+      storage:
+        provider: local
+        provider_user_id: 정규화한 이메일
+        password_hash: BCrypt 결과
+      signup_transaction: users와 auth_accounts를 한 트랜잭션으로 생성한다
+
+    google:
+      app_sdk: Credential Manager
+      app_sdk_note: 기존 Google Sign-In SDK는 지원 종료 수순이다. 오래된 예제를 따라가면 deprecated API를 쓰게 된다
+      app_receives: ID 토큰 (JWT)
+      server_verify: 구글 공개키로 JWT 서명을 직접 검증한다
+      provider_user_id: 검증된 ID 토큰의 sub
+      verify_note: 네트워크 왕복이 없어 카카오나 네이버보다 빠르고 외부 API 타임아웃 대상이 아니다
+      keys_required: [Android용 OAuth 클라이언트 ID, 서버용 OAuth 클라이언트 ID]
+
+    kakao:
+      app_sdk: Kakao SDK for Android
+      app_receives: 액세스 토큰
+      server_verify: GET kapi.kakao.com/v2/user/me 에 Bearer 토큰으로 조회
+      provider_user_id: 검증 응답의 사용자 id
+      keys_required: [네이티브 앱 키, 키 해시]
+      pitfall: 디버그 빌드와 릴리스 빌드의 키 해시가 다르다. 둘 다 콘솔에 등록하지 않으면 개발 중에는 되고 배포하면 실패한다
+
+    naver:
+      auth_flow: server_owned_oauth_authorization_code
+      android_status: deferred
+      android_status_note: >-
+        Android 로그인 화면과 App Link ticket 처리기는 verified App Link 도메인과
+        네이버 HTTPS callback 등록을 확인할 때까지 비활성으로 둔다.
+      release_gate: [verified Android App Link domain, 네이버 개발자센터 HTTPS callback 등록, STOG_APP_LINK_URI backend 설정]
+      app_client: Android Custom Tab 또는 브라우저 OAuth
+      app_receives: 서버가 발급한 1회용 로그인 ticket
+      server_verify: GET openapi.naver.com/v1/nid/me 에 Bearer 토큰으로 조회
+      provider_user_id: 검증 응답의 사용자 id
+      keys_required: [Client ID, Client Secret]
+      secret_rule: Client Secret은 서버에만 둔다
+      oauth:
+        authorize_url: "https://nid.naver.com/oauth2.0/authorize"
+        token_url: "https://nid.naver.com/oauth2.0/token"
+        callback: 백엔드에 등록한 HTTPS callback URL
+        state: 서버 생성 1회용 값으로 요청 위조를 방지한다
+        app_return: STOG_APP_LINK_URI에 ticket만 전달하고 JWT는 URL에 넣지 않는다
+      profile_permissions:
+        always_available: [이용자 식별자]
+        required_recommended: [별명]
+        additional_recommended: []
+        unused_for_current_scope: [회원이름, 연락처 이메일 주소, 프로필 사진, 성별, 생일, 연령대, 출생연도, 휴대전화번호]
+        rationale: >-
+          이용자 식별자는 auth_accounts.provider_user_id에 저장하고 별명은 users.nickname을
+          초기값으로 사용한다. 현재 기능에는 실명, 연락처, 성별, 생일, 연령, 출생연도,
+          휴대전화번호, 프로필 사진이 필요하지 않으므로 수집하지 않는다.
+      upstream_api:
+        profile:
+          method: GET
+          url: "https://openapi.naver.com/v1/nid/me"
+          request_headers: ["Authorization: Bearer {access_token}"]
+          response_fields:
+            required: [resultcode, message, response.id, response.nickname]
+            ignored: [response.name, response.email, response.profile_image, response.gender, response.birthday, response.age, response.birthyear, response.mobile]
+        token:
+          method: GET
+          url: "https://nid.naver.com/oauth2.0/token"
+          purpose: 서버가 authorization code를 직접 교환하는 흐름에서만 사용
+          required_credentials: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]
+        revoke:
+          method: POST
+          url: "https://nid.naver.com/oauth2.0/revoke"
+          purpose: 네이버 연동 해제 기능을 추가할 때 사용
+          required_credentials: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]
+      backend_contract:
+        endpoint: "POST /auth/social"
+        request:
+          content_type: application/json
+          body:
+            provider: naver
+            token: 서버가 발급한 1회용 로그인 ticket
+        server_steps:
+          - authorization code를 Client ID와 Client Secret으로 네이버 token API와 교환한다
+          - access_token으로 네이버 프로필 API를 호출한다
+          - response.id를 provider_user_id로 사용해 auth_accounts를 조회하거나 생성한다
+          - response.nickname을 신규 users.nickname의 초기값으로 사용한다
+          - 네이버 access_token을 STOG 토큰으로 저장하지 않는다
+          - 기존 인증 공통 응답으로 자체 JWT를 발급한다
+        success_response:
+          status: 200
+          body: [access_token, refresh_token, user]
+        error_responses:
+          - {status: 401, code: invalid_naver_token, when: 네이버 access_token이 만료되었거나 프로필 조회가 실패함}
+          - {status: 403, code: naver_api_permission_denied, when: 네이버 개발자센터 API 권한이 없음}
+          - {status: 502, code: naver_provider_unavailable, when: 네이버 API가 일시적으로 응답하지 않음}
+      credential_management:
+        environment_variables: [NAVER_CLIENT_ID, NAVER_CLIENT_SECRET]
+        storage: backend_environment_or_secret_manager
+        prohibited: [문서에 실제 값 기록, Git 저장소 기록, APK BuildConfig 주입, Android manifest 주입]
+      enablement_order:
+        - verified App Link domain과 백엔드 callback URL을 네이버 개발자센터에 등록한다
+        - 서버가 authorization code를 교환하고 1회용 login ticket을 만든다
+        - Android 로그인 화면과 ticket handler를 활성화한 뒤 ticket을 POST /auth/social로 교환한다
+
+    secret_rule: 모든 시크릿 키는 서버에만 둔다. APK에 넣지 않는다
+    credential_storage:
+      android_local_file: /secrets.properties
+      android_allowed: [KAKAO_NATIVE_APP_KEY, MAPS_API_KEY]
+      android_injection:
+        MAPS_API_KEY:
+          manifest_placeholder: GOOGLE_MAPS_API_KEY
+          manifest_metadata: com.google.android.geo.API_KEY
+          restriction: Android 앱 패키지와 debug/release SHA-1로 제한한 Google Maps SDK for Android 키만 허용한다
+      backend_local_file: /backend/.env
+      backend_template: /backend/.env.example
+      backend_production: Cloud Run 환경변수 또는 Secret Manager
+      backend_only: [GOOGLE_PLACES_API_KEY, GOOGLE_ROUTES_API_KEY]
+      prohibited: [문서에 실제 값 기록, Git 저장소 기록, backend-only 키의 APK BuildConfig 주입, backend-only 키의 Android manifest 주입]
+      migration: >-
+        기존 secrets.properties의 백엔드 전용 키를 backend/.env로 수동 복사하고
+        값이 정상인지 확인한 뒤 Android 파일에서 삭제한다. MAPS_API_KEY는 Android
+        manifest placeholder로만 주입하며 Google Places와 Routes 키는 Android에 남기지 않는다.
+    verify_before_build: 각 제공자의 공식 문서에서 엔드포인트와 응답 형식을 착수 전에 확인한다
+  groups:
+    - group: 인증
+      endpoints:
+        - {path: "POST /auth/signup", body: [email, password, nickname], note: 자체 로그인 가입}
+        - {path: "POST /auth/login", body: [email, password], note: 자체 로그인}
+        - {path: "POST /auth/social", body: [provider, token], note: "provider는 google, kakao, naver 중 하나. 네이버는 token에 서버가 발급한 1회용 login ticket을 보내며 서버가 프로필을 검증한 뒤 가입 또는 로그인을 함께 처리한다"}
+        - {path: "POST /auth/refresh", body: [refresh_token]}
+        - {path: "POST /auth/logout"}
+        - {path: "GET /me"}
+
+    - group: 셀
+      endpoints:
+        - path: GET /cells
+          auth: optional
+          query: [swLat, swLng, neLat, neLng, cursor, limit]
+          response:
+            fields: [cell_id, background, badges, landmark_count, public_photo_count, public_photo_like_count, top_photo_id, my_visit_count, my_photo_count, my_latest_photo_thumbnail_url]
+            pagination: cursor
+          note: >-
+            좌표 범위로 조회하고 결과를 H3-10 cell_id로 묶는다. public projection과
+            caller의 authorized overlay만 합치며 polyfill 후 IN 절을 쓰지 않는다.
+            limit은 cell_summary_page_size 설정으로 제한하고 unauthenticated caller의
+            my_* fields는 zero이며 my_latest_photo_thumbnail_url은 null이다.
+        - path: GET /cells/{cellId}
+          auth: optional
+          response:
+            fields: [cell_id, background, badges, landmark_count, public_photo_count, public_photo_like_count, top_photo_id, my_visit_count, my_photo_count, my_latest_photo_thumbnail_url, visibility_reasons]
+          note: cell이 나타난 public reason과 caller-scoped reason을 함께 반환하며 private data 자체는 반환하지 않는다
+        - path: GET /cells/{cellId}/photos
+          auth: optional
+          query: [cursor, limit, scope]
+          response:
+            fields: [id, cell_id, lat, lng, thumbnail_url, taken_at, caption, like_count, liked_by_viewer, visibility_scope, accuracy_m, place_id, place_name, place_resolution_status, visibility, moderation_status, publication_status]
+            pagination: cursor
+            note: >-
+              기본 scope는 public_photo_eligibility 또는 caller가 authorized인 group/own photo이며,
+              scope=mine은 인증된 caller의 본인 사진만 반환한다. thumbnail_url은 signed read URL이고
+              object key는 반환하지 않는다. coordinate-less photo는 Cell photo response에 포함하지 않는다.
+
+    - group: 여행
+      permissions:
+        owner_only: [참여자 삭제, 여행 정보 수정, 여행 삭제]
+        all_members: [초대 링크 생성, 일정 바구니 추가, 일정 바구니 삭제, 여행 일정 수정, 변경 이력 조회]
+      endpoints:
+        - path: POST /trips
+          body: [title, activity_type, planned_start_date, planned_end_date, region_code]
+          response: [id, title, activity_type, mode, visibility, region_code, planned_start_date, planned_end_date]
+        - path: PUT /trips/{id}
+          auth: owner
+          body: [title, planned_start_date, planned_end_date]
+          response: [id, title, activity_type, mode, visibility, region_code, planned_start_date, planned_end_date]
+          note: 여행 기본 정보만 수정하며 기존 trips 행을 갱신한다
+        - path: DELETE /trips/{id}
+          auth: owner
+          response: 204
+          constraint: active_non_owner_count == 0
+          note: 여행과 연결된 일정·바구니를 함께 삭제한다. 참여자에게는 노출하지 않는다
+        - {path: "GET /trips/me", response: [id, title, activity_type, mode, visibility, region_code, planned_start_date, planned_end_date], note: "여행 목록에서 일정을 선택할 때 사용한다"}
+        - path: GET /trips/{id}
+          auth: required_member
+          response: [id, title, activity_type, mode, visibility, region_code, planned_start_date, planned_end_date]
+        - path: PATCH /trips/{id}/mode
+          auth: owner
+          body: [mode]
+          response: [trip_id, mode, started_at, ended_at]
+          note: ended는 terminal이며 trips.owner_id가 shared lifecycle 변경 권한의 단일 기준이다
+        - path: PATCH /trips/{id}/collection-state
+          auth: required_member
+          body: [collector_state, permission_state, sync_cursor, expected_mode_version]
+          response: [trip_id, user_id, collector_state, permission_state, sync_cursor, mode_version, collector_started_at, updated_at]
+          concurrency: expected_mode_version이 현재 값과 다르면 409이며 다른 참여자 상태는 변경하지 않는다
+        - path: POST /trips/{id}/visits
+          auth: required_member
+          body: [client_visit_id, payload_fingerprint, cell_id, lat, lng, entered_at, left_at, status, is_interpolated]
+          idempotency:
+            scope: [trip_id, user_id, client_visit_id]
+            same_payload_replay: original_response
+            changed_payload_replay: 409
+            changed_payload_code: VISIT_IDEMPOTENCY_CONFLICT
+            fingerprint:
+              algorithm: SHA-256 lowercase hex
+              canonical_field_order: [cell_id, lat, lng, entered_at, left_at, status, is_interpolated]
+              normalization:
+                cell_id: lowercase H3-10 wire string
+                coordinates: finite decimal without insignificant trailing zero
+                timestamps: UTC Instant string
+                status: server-validated passed or visited
+                json_object_key_order: ignored
+          late_event:
+            grace: product.tuning_parameters.late_visit_grace_hours
+            accepted_if: left_at_lte_trip_ended_at
+            committed_replay_after_end: acknowledged
+        - {path: "GET /trips/{id}/members", auth: required_member, response: [viewer_id, owner_id, members], member_fields: [user_id, nickname, joined_at], note: "active 참여자만 반환하며 viewer_id와 owner_id로 Android가 관리 action 권한을 판정한다"}
+        - {path: "POST /trips/{id}/invite-links", auth: required_member, note: "활성 참여자가 호출한다. 링크 만료 정책은 A-05 결정 후 확정한다"}
+        - {path: "POST /trip-invites/{token}/join", note: "로그인한 사용자가 초대 링크의 token으로 참여한다"}
+        - {path: "Android invite URI https://stog-backend-qoeu5cmuxq-as.a.run.app/trip-invites/{token}", note: "Android가 초대 링크를 ACTION_SEND로 전달하고 HTTPS VIEW/BROWSABLE로 수신한다. 기존 stog://trip-invites/{token}도 수신 호환하며, 미인증 사용자는 로그인 뒤 수락 팝업에서 이 token으로 join한다"}
+        - {path: "DELETE /trips/{id}/members/{userId}", note: "그룹장만 다른 참여자를 삭제한다"}
+        - {path: "DELETE /trips/{id}/members/me", note: "참여자가 나가며 그룹장은 다른 active 참여자가 없을 때만 여행을 삭제한다"}
+
+    - group: 사진
+      endpoints:
+        - path: POST /photos/upload-url
+          auth: required
+          body:
+            - trip_id
+            - client_upload_id
+            - original: [content_type, size_bytes, sha256]
+            - thumbnail: [content_type, size_bytes, sha256]
+          response: [original_object_key, original_upload_url, thumbnail_object_key, thumbnail_upload_url, content_type, original_upload_headers, thumbnail_upload_headers, expires_at]
+          note: "서명 URL 2개를 발급한다. 사진 bytes는 서버를 지나가지 않는다"
+        - {path: "POST /photos/place-preview", auth: required, body: [latitude, longitude, accuracy_m], response: [status, place_id, place_name], note: "현재 좌표의 canonical place를 미리 확인하며 photo나 place를 저장하지 않는다"}
+        - path: POST /photos
+          auth: required
+          body: [trip_id, source, client_upload_id, original_key, thumb_key, original, thumbnail, latitude, longitude, accuracy_m, location_provenance, taken_at, caption, place_resolution_status, expected_place_id, visibility, public_consent]
+          response: [id, trip_id, user_id, source, cell_id, latitude, longitude, accuracy_m, location_provenance, taken_at, original_url, thumbnail_url, caption, place_id, place_name, place_resolution_status, visibility, moderation_status, public_consent, publication_status, created_at]
+          note: "두 object upload가 확인된 뒤 metadata와 pending moderation_status만 저장한다. client cell_id는 받지 않고 backend가 좌표에서 계산한다"
+        - path: GET /photos/{id}
+          auth: required
+          response: [id, trip_id, user_id, source, cell_id, latitude, longitude, accuracy_m, location_provenance, taken_at, original_url, thumbnail_url, caption, place_id, place_name, place_resolution_status, visibility, moderation_status, public_consent, publication_status, created_at]
+        - path: GET /trips/{tripId}/photos
+          auth: required
+          response: [id, trip_id, user_id, source, cell_id, latitude, longitude, accuracy_m, location_provenance, taken_at, thumbnail_url, caption, place_id, place_name, place_resolution_status, visibility, moderation_status, public_consent, publication_status, created_at]
+          note: "보관함에서 viewer가 authorized인 trip 사진만 조회한다"
+        - path: GET /trips/{tripId}/archive
+          auth: required_member
+          response: [trip_id, mode, planned_start_date, planned_end_date, started_at, ended_at, itinerary_item_count, itinerary_change_count, visit_count, visited_count, passed_count, visited_cell_count, photo_count, trail]
+          note: "종료 여행의 기존 archive projection을 반환하며 사진 목록은 GET /trips/{tripId}/photos에서 조회한다"
+        - path: PATCH /photos/{id}/visibility
+          auth: owner
+          body: [visibility]
+          response: [id, trip_id, user_id, source, cell_id, latitude, longitude, accuracy_m, location_provenance, taken_at, original_url, thumbnail_url, caption, place_id, place_name, place_resolution_status, visibility, moderation_status, public_consent, publication_status, created_at]
+        - {path: "POST /photos/{id}/public-grants", auth: owner, response: [photo_id, version, granted_by, granted_at, revoked_at, scope], note: "사진 소유자가 public_grant를 명시적으로 승인한다. revoke된 뒤에는 version을 증가시켜 다시 승인한다"}
+        - {path: "POST /photos/{id}/public-grants/{version}/revoke", auth: owner, response: [photo_id, version, granted_by, granted_at, revoked_at, scope], note: "해당 version을 revoke하고 public eligibility와 projection을 즉시 해제한다"}
+        - {path: "GET /photos/{id}/public-grants", auth: owner, response: [photo_id, version, granted_by, granted_at, revoked_at, scope]}
+        - {path: "PATCH /photos/{id}/moderation", auth: moderator, body: [to_status, reason], response: [photo_id, from_status, to_status, moderator_id, reason, created_at], note: "users.is_moderator가 true인 사용자만 pending을 approved 또는 blocked로 전환한다"}
+
+    - group: 계획
+      endpoints:
+        - {path: "POST /places/search", auth: public, body: [query, lat, lng, radius], response: [provider, external_id, name, formatted_address, latitude, longitude, types, photo_names, photo_urls, provenance], note: "normalized local catalog를 먼저 검색하고 catalog_search_fallback_min_results 미만이면 Google Places fallback을 호출한다. canonical source image는 승인된 HTTPS URL만 photo_urls로 노출하며 provider key는 Android에 노출하지 않는다"}
+        - {path: "POST /places/nearby", auth: public, body: [center, radius_meters, included_types, max_result_count], response: [provider, external_id, name, formatted_address, latitude, longitude, types, photo_names, photo_urls, provenance], note: "위치 권한이 있는 게스트도 호출할 수 있는 읽기 전용 추천이다. 관광지·자연·역사·동물원·수족관·테마파크 유형만 조회하고 음식점·카페·숙박·쇼핑은 제외한다. canonical·provider 후보를 사진 있는 결과 우선으로 합치며 canonical source image는 승인된 HTTPS URL만 photo_urls로 노출한다. 같은 provider ID 또는 정규화된 이름과 nearby_place_duplicate_distance_m 기준으로 같은 장소는 한 번만 반환하며 어느 결과도 요청 중 DB에 저장하지 않는다"}
+        - {path: "POST /events/nearby", auth: public, body: [center, "radius_meters?", "from_date?", "to_date?", "max_result_count?"], response: [provider, external_id, title, venue_name, formatted_address, latitude, longitude, starts_on, ends_on, detail_uri, image_uri, provenance], note: "TourAPI searchFestival2로 동기화한 공개 행사를 거리순으로 반환하는 읽기 전용 추천이다. 선택한 반경·기간이 없으면 canonical tuning 기본값을 사용하며 행사 provider를 요청 중 직접 호출하거나 Android에 키를 넣지 않는다"}
+        - {path: "GET /places/{placeId}", auth: public, response: [external_id, name, formatted_address, latitude, longitude, types, regular_opening_hours, national_phone_number, website_uri, google_maps_uri, photo_names, photo_urls, rating, user_rating_count, business_status, open_now, next_close_time], note: "검색 결과 지도 표시 또는 Google 기본 장소 클릭 후 Place Details를 조회하며 외부 평점과 운영 상태는 상세 표시 전용이다"}
+        - {path: "GET /places/photo?name={photoName}", auth: public, note: "Google Places 사진을 backend API key로 프록시하며 Android에는 Google Places key를 넣지 않는다"}
+        - path: POST /basket-items
+          auth: required_member
+          body: [trip_id, client_item_id, payload_fingerprint, place]
+          idempotency: {scope: [trip_id, user_id, client_item_id], same_payload_replay: original_response, changed_payload_replay: 409}
+          note: 확인한 장소를 선택하거나 새로 만든 여행의 일정 바구니에 추가한다
+        - path: POST /basket-items/link
+          auth: required_member
+          body: [trip_id, client_item_id, payload_fingerprint, link_block]
+          idempotency: {scope: [trip_id, user_id, client_item_id], same_payload_replay: original_response, changed_payload_replay: 409}
+          note: 확인한 공유 담기 항목만 선택한 여행의 일정 바구니에 추가한다
+        - {path: "POST /basket-items/{id}/resolve", note: "일정 배치 시점에 지도 검색으로 좌표를 매핑한다"}
+        - GET /trips/{id}/basket
+        - {path: "GET /trips/{id}/itinerary", note: "planned_start_date 기준의 day_number별 일정 항목을 반환한다"}
+        - {path: "PUT /trips/{id}/itinerary", note: "선택한 여행의 날짜 범위 안에서 day_number를 지정한다. 그룹 여행에서는 모든 참여자가 수정할 수 있고 itinerary_changes에 기록한다"}
+        - {path: "GET /trips/{id}/itinerary/changes", note: "그룹 여행 참여자가 변경 이력을 조회한다"}
+        - POST /itinerary/validate
+
+    - group: 소셜
+      endpoints:
+        - path: GET /feed
+          auth: optional
+          query: [cursor, limit]
+          response:
+            fields: [photo_id, trip_id, owner_id, owner_nickname, owner_profile_image_url, thumbnail_key, caption, cell_id, lat, lng, taken_at, like_count, comment_count, liked_by_viewer, saved_by_viewer, created_at]
+            pagination: cursor
+          note: "public_photo_eligibility를 통과한 photo만 반환하며 limit은 feed_page_size 설정으로 제한한다"
+        - path: GET /feed/saved
+          auth: required
+          query: [cursor, limit]
+          response:
+            fields: [photo_id, trip_id, owner_id, owner_nickname, owner_profile_image_url, thumbnail_key, caption, cell_id, lat, lng, taken_at, like_count, comment_count, liked_by_viewer, saved_by_viewer, created_at]
+            pagination: cursor
+          note: "caller가 저장한 public_photo_eligibility photo만 저장 시각 역순으로 반환한다"
+        - {path: "POST /photos/{id}/save", auth: required, response: [photo_id, saved_by_viewer], note: "feed eligible public photo에만 적용하며 duplicate save는 idempotent다"}
+        - {path: "DELETE /photos/{id}/save", auth: required, response: [photo_id, saved_by_viewer], note: "feed eligible public photo에만 적용하며 중복 삭제는 idempotent다"}
+        - {path: "POST /photos/{id}/like", auth: required, response: [photo_id, like_count, liked_by_viewer], note: "eligible public photo에만 적용하며 duplicate target은 하나로 제한한다"}
+        - {path: "DELETE /photos/{id}/like", auth: required, response: [photo_id, like_count, liked_by_viewer], note: "중복 삭제는 idempotent다"}
+        - {path: "GET /photos/{id}/comments", auth: optional, response: [items: [id, photo_id, user_id, author_name, body, created_at]], note: "feed eligible public photo의 댓글을 작성 시각 오름차순으로 반환한다"}
+        - {path: "POST /photos/{id}/comments", auth: required, body: [body], response: [id, photo_id, user_id, author_name, body, created_at], note: "feed eligible public photo에만 댓글을 작성하며 body는 500자 이내다"}
+        - path: GET /public-trips
+          auth: optional
+          query: [cursor, limit]
+          response:
+            fields: [trip_id, owner_id, title, ended_at, like_count, liked_by_viewer, itinerary_item_count, member_trails]
+            member_trail_fields: [user_id, visits]
+            visit_fields: [visit_id, cell_id, lat, lng, entered_at, left_at, status, is_interpolated]
+            pagination: cursor
+          eligibility: [visibility=public, mode=ended, ended_at_is_not_null]
+          ordering: [ended_at_desc, trip_id_desc]
+          note: 방문은 user_id별로 묶고 각 동선은 entered_at과 visit_id 오름차순으로 반환한다
+        - {path: "POST /trips/{id}/like", auth: required, response: [trip_id, like_count, liked_by_viewer], note: "public ended trip에만 적용하며 중복 요청은 idempotent다"}
+        - {path: "DELETE /trips/{id}/like", auth: required, response: [trip_id, like_count, liked_by_viewer], note: "중복 삭제는 idempotent다"}
+        - path: POST /trips/{id}/copy
+          auth: required
+          body: [destination_trip_id, destination_day, idempotency_key]
+          response: [source_trip_id, destination_trip_id, destination_day, copied_item_count, destination_basket_item_ids, destination_itinerary_item_ids, itinerary_change_id]
+          source_eligibility: [visibility=public, mode=ended, ended_at_is_not_null]
+          destination_authorization: required_member
+          ordering: [source_day_number, source_order_index, source_itinerary_item_id]
+          idempotency: {scope: [user_id, idempotency_key], same_payload_replay: original_response, changed_payload_replay: 409, changed_payload_code: TRIP_COPY_IDEMPOTENCY_CONFLICT}
+
+    - group: 리워드
+      endpoints:
+        - GET /partners/nearby
+        - POST /coupons/issue
+        - POST /coupons/{id}/redeem
+        - GET /honey/balance
+
+    - group: 성향
+      endpoints:
+        - GET /profile
+        - PUT /profile
+        - PUT /profile/survey
+        - GET /profile/summary
+        - POST /profile/avatar/upload-url
+        - POST /profile/avatar/finalize
+        - GET /photos/mine
+        - GET /trips/{tripId}/context
+        - PATCH /trips/{tripId}/context
+      contract: >-
+        GET /profile은 preference_scores와 travel_style_scores를 별도 object로 반환한다.
+        PUT /profile/survey는 v1 cold_start 또는 precision 답변을 받아 backend가
+        결정론적으로 계산하고 user_preferences와 user_travel_styles에 저장한다.
+        precision 결과가 canonical initial profile이며 cold_start는 precision 완료 전까지만
+        사용한다. 단일 traveler_type을 반환하지 않는다. trip context는 해당 trip에서만
+        읽고 쓴다. GET /profile/summary는 사용자 소유 여행·방문·좌표가 있는
+        비차단 사진의 서로 다른 H3 resolution 10 Cell 집계를 반환한다.
+        프로필 이미지는 signed upload URL로 직접 전송한 뒤 finalize하고,
+        GET /photos/mine은 사용자 전체 사진을 프로필 3열 Grid용으로 반환한다.
+
+feature_contracts:
+  F-02:
+    schema: [cell_stats, places, photos, visits]
+    api: ["GET /cells", "GET /cells/{cellId}", "GET /cells/{cellId}/photos"]
+  F-03:
+    schema: [trips, trip_members, trip_member_collection_states, visits]
+    api: ["PATCH /trips/{id}/mode", "PATCH /trips/{id}/collection-state", "POST /trips/{id}/visits"]
+  F-05:
+    schema: [basket_items, trips, trip_members]
+    api: ["POST /basket-items", "POST /basket-items/link", "GET /trips/{id}/basket"]
+  F-08:
+    local_schema: [share_imports, share_import_candidates, share_import_decisions]
+    cloud_schema: [basket_items]
+    api: ["POST /basket-items", "POST /basket-items/link"]
+  F-04:
+    schema: [photos, photo_public_grants, photo_moderation_events, pending_set_logs]
+    cloud_schema: [photos, photo_public_grants, photo_moderation_events]
+    local_schema: [pending_set_logs]
+    api: ["POST /photos/upload-url", "POST /photos/place-preview", "POST /photos", "GET /photos/{id}", "PATCH /photos/{id}/visibility", "GET /cells/{cellId}/photos", "GET /trips/{tripId}/photos", "GET /trips/{tripId}/archive", "POST /photos/{id}/public-grants", "POST /photos/{id}/public-grants/{version}/revoke", "GET /photos/{id}/public-grants"]
+    client_behavior: [home_camera_action, camerax_preview_image_capture, immutable_shutter_snapshot, record_confirmation_before_finalize, gallery_exif_preservation, durable_set_log_delivery]
+    frozen_snapshot_fields: [account_id, user_id, trip_id, source, capture_token, taken_at, taken_at_provenance, coordinates, accuracy_m, location_provenance, provisional_cell_id, local_asset]
+    editable_draft_fields: [place_preview, caption, visibility_intent, publication_state]
+    persisted_outbox_fields: [client_upload_id, account_id, user_id, trip_id, source, original_path, thumbnail_path, source_path, original_size, thumbnail_size, original_sha256, thumbnail_sha256, latitude, longitude, accuracy_m, location_provenance, taken_at, caption, place_resolution_status, expected_place_id, visibility, public_consent, created_at]
+    snapshot_rule: "shutter provenance and local asset are frozen at capture; place preview, note, and visibility remain editable until Record confirmation, then the persisted outbox row is immutable"
+    read_publication_statuses: [private, group, trip_not_public, moderation_pending, moderation_blocked, revoked, public]
+    location_policy: [product.tuning_parameters.camera_location_max_age_seconds, product.tuning_parameters.camera_location_max_accuracy_m, product.tuning_parameters.camera_location_timeout_seconds]
+    gallery_policy: [preserve_exif_coordinates, preserve_exif_time, missing_coordinates_archive_only, missing_time_nullable]
+    authority: [backend_resolves_place, backend_recomputes_h3_from_coordinates, moderation_controls_public_visibility]
+  F-07:
+    schema: [photos, trips, visits]
+    api: ["GET /trips/{tripId}/photos", "GET /trips/{tripId}/archive"]
+    archive_response:
+      photo_fields: [id, trip_id, user_id, source, cell_id, latitude, longitude, accuracy_m, location_provenance, taken_at, thumbnail_url, caption, place_id, place_name, place_resolution_status, visibility, moderation_status, public_consent, publication_status, created_at]
+      trail_fields: [visit_id, user_id, cell_id, latitude, longitude, entered_at, left_at, status, is_interpolated]
+      archive_fields: [trip_id, mode, planned_start_date, planned_end_date, started_at, ended_at, itinerary_item_count, itinerary_change_count, visit_count, visited_count, passed_count, visited_cell_count, photo_count, trail]
+    archive_trail:
+      source: visits
+      ordering: [entered_at, visit_id]
+      fields: [visit_id, user_id, cell_id, latitude, longitude, entered_at, left_at, status, is_interpolated]
+      map_rule: one trail per member; interpolated segments are visually distinct
+      eligibility: ended_trip_and_active_member
+  F-10:
+    schema: [places, catalog_sources, license_snapshots, place_source_records, place_source_images, place_aliases, cell_stats]
+    api: ["POST /places/search", "GET /cells", "GET /cells/{cellId}"]
+  F-11:
+    schema: [visits, trips, visit_review_receipts]
+    api: ["POST /trips/{id}/visits"]
+    review_rule: backend_review_required_is_consumed_by_android_review_slide
+  F-06:
+    schema: [trips, trip_members, basket_items, itinerary_items, itinerary_changes]
+    api: ["GET /trips/me", "GET /trips/{id}", "GET /trips/{id}/members", "POST /trips/{id}/invite-links", "DELETE /trips/{id}/members/{userId}", "DELETE /trips/{id}/members/me", "GET /trips/{id}/basket", "DELETE /trips/{id}/basket/{basketItemId}", "GET /trips/{id}/itinerary"]
+    scope: planning_workspace_only
+  F-09:
+    schema: [basket_items, itinerary_items, itinerary_proposals, itinerary_proposal_actions]
+    api: ["POST /trips/{id}/itinerary/proposals/preview", "POST /trips/{id}/itinerary/proposals/{proposalId}/apply", "POST /trails/compute"]
+    generation: deterministic_constraint_scheduler_with_routes_duration
+    proposal_rule: preview_no_write_and_explicit_apply_only
+  F-24:
+    schema: [trips, trip_members, itinerary_items]
+    api: ["GET /trips/me", "POST /trips"]
+    projection: monthly_calendar_derived_from_planned_date_bounds
+    write_rule: selected_calendar_date_maps_to_itinerary_day_number
+  F-12:
+    schema: [trips, visits, likes, basket_items, itinerary_items, public_trip_copy_receipts]
+    api: ["GET /feed", "GET /public-trips", "POST /trips/{id}/like", "DELETE /trips/{id}/like", "POST /trips/{id}/copy"]
+    visibility: public_ended_trip_only
+    trail: per_member_ordered_visits
+    copy: caller_selected_existing_destination_trip_and_day
+  F-15:
+    schema: [trips, trip_members, photos]
+    api: ["POST /trips/{id}/invite-links", "DELETE /trips/{id}/members/{userId}", "DELETE /trips/{id}/members/me"]
+  F-16:
+    schema: [users, user_preferences, user_travel_styles, user_survey_responses, profile_evidence, trips, photos]
+    api: ["GET /profile", "PUT /profile", "PUT /profile/survey", "GET /profile/summary", "POST /profile/avatar/upload-url", "POST /profile/avatar/finalize", "GET /photos/mine", "GET /trips/{tripId}/context", "PATCH /trips/{tripId}/context"]
+  F-17:
+    schema: [events]
+    api: ["POST /events/nearby"]
+    phase_one: nearby_read_only_cards
+    source: tourapi_searchFestival2
+    refresh: scheduled_upsert_and_retire
+    visibility: public
+    location_rule: coordinates_required_for_nearby_results
+    deferred_after_phase_one: [event_detail, event_notifications, event_cell_content]
+  F-25:
+     schema: [photos, photo_public_grants, photo_moderation_events, photo_comments, likes, saved_photos, cell_stats]
+     api: ["GET /feed", "GET /feed/saved", "POST /photos/{id}/save", "DELETE /photos/{id}/save", "POST /photos/{id}/like", "DELETE /photos/{id}/like", "GET /photos/{id}/comments", "POST /photos/{id}/comments", "PATCH /photos/{id}/moderation"]
+
+visibility_policy:
+  trip_visibility:
+    value: public
+    fixed: true
+    applies_to: [trips]
+  public_trip_eligibility:
+    all_of: [trip.visibility=public, trip.mode=ended, trip.ended_at_is_not_null]
+    applies_to: [public_trip_feed, trip_like, itinerary_copy_source]
+    fail_closed: true
+  public_photo_eligibility:
+    all_of: [trip.visibility=public, photo.visibility=public]
+    excluded_if: [photo.moderation_status=blocked]
+    applies_to: [feed, saved_feed, photo_like, photo_save, cell_stats, cell_featured_photo, public_signed_read]
+    note: moderation approval and active photo_public_grant are not required for discovery publication
+    fail_closed: true
+  effective_photo_visibility:
+    rule: trip.visibility와 photo.visibility 중 더 제한적인 범위를 적용한다
+    scopes: [private, group, public]
+    group_requires: active trip_members membership
+  cell_scope:
+    public_reasons: [licensed_landmark, eligible_public_photo]
+    viewer_reasons: [my_visit, my_photo, authorized_group_photo]
+    projection_inputs: [licensed_landmark, eligible_public_photo, eligible_public_photo_like]
+    overlay_fields: [my_visit_count, my_photo_count]
+    rule: personal visit/photo counts are query overlays and never cell_stats inputs
+
+search:
+  mode: local_first_lexical
+  p0_p1_catalog:
+    current_cleaned_tourism_catalog: preserved
+    preserved_tables: [places, place_details, catalog_sources, license_snapshots, place_source_records, place_source_images, place_aliases, catalog_import_runs, catalog_import_provenance]
+    storage_redesign: deferred_after_P0_P1
+    google_fallback_bulk_canonical_persistence: forbidden
+  normalization:
+    unicode: NFKC
+    case: Locale.ROOT lowercase
+    separators: non-letter/digit runs collapse to one ASCII space
+    compact_key: remove spaces after trim
+  ranking: [exact_normalized_name, exact_compact_name, exact_alias, pg_trgm_fuzzy, id]
+  indexes: [pg_trgm on places.normalized_name, pg_trgm on places.compact_name, pg_trgm on place_aliases.normalized_name, pg_trgm on place_aliases.compact_name]
+  fallback: Google Places request-time only when local result gate is unmet; results remain provider-backed unless an existing confirmed private reference flow requires one row
+  deferred: [embedding, pgvector, semantic_search, image_similarity, broader_catalog_storage_redesign]
+
+deferred_contracts:
+  note: 구현은 뒤 단계에서 별도 승인 후 추가한다. 현재 단계에는 schema, endpoint, runtime, projection을 만들지 않는다
+  items:
+    - {id: embedding, status: deferred, reason: "representative quality, cost, and region pilot not selected"}
+    - {id: pgvector, status: deferred, reason: lexical pg_trgm search is the current search contract}
+    - {id: image_similarity, status: deferred, reason: no image-to-place runtime or durable user-photo reuse}
+    - {id: event_details_notifications, status: deferred, feature_id: F-17, reason: "phase_1 delivers nearby read-only event cards; detail page, notifications, and event Cell content remain later work"}
+    - id: travel_frontend_backend
+      status: active_for_p0_p1_planning_and_record_surfaces
+      reason: P0/P1 planning and record reads/writes are now part of the current delivery contract; explicit itinerary completion persistence and preference coupling remain deferred.
+      required_reads:
+        - 여행 목록을 active·upcoming·completed로 나눌 수 있는 날짜와 mode
+        - 여행 참여자와 공개 가능한 성향 축 요약
+        - 날짜별 일정 항목, 이동 거리·시간, 완료 여부
+        - 여행 후 셀·장소·사진 집계와 날짜별 사진
+      required_writes:
+        - 선택한 basket_items를 지정 day_number에 추가
+        - 일정 순서와 방문 완료 상태 저장
+        - trip_id를 가진 STOBEE conversation 생성과 message 추가
+        - typed proposal 조회와 별도 apply
+      authority:
+        - Routes API가 실제 거리와 이동 시간을 계산한다
+        - DB가 영업시간·행사 날짜·장소·사용자 성향을 제공한다
+        - LLM은 의도 해석과 추천 이유와 proposal만 생성한다
+        - Spring Boot가 권한·검증·transaction·DB write를 소유한다
+
+algorithms:
+  - id: ALG-01
+    name: 셀 판정
+    where: 앱
+    method: latLngToCell로 셀을 구하고 직전 셀과 다르면 연속 확인 후 전환으로 인정
+    uses: [cell_transition_confirm, location_distance_filter_m]
+    complexity: O(1)
+    note: 모든 GPS 점을 서버로 보내지 않는다. 8시간 여행 기준 수천 건이 수십 건으로 줄어든다
+
+  - id: ALG-02
+    name: 방문 판정
+    where: 서버
+    method: 목표 셀에서 체류 시간이 임계값을 넘으면 visited, 셀을 벗어나면 passed
+    uses: [visit_dwell_minutes]
+    complexity: O(1)
+    test: 필수. 순수 함수로 분리한다
+
+  - id: ALG-03
+    name: 동선 보간
+    where: 서버
+    method: 연속 두 지점의 평균 속도가 임계값 이하면 실선 보간, 초과하면 점선 처리 후 방문과 쿠폰에서 제외
+    uses: [walk_speed_limit_kmh]
+    complexity: O(n)
+    note: 전북에 지하 구간이 없어 터널 판별이 필요 없다
+
+  - id: ALG-04
+    name: 주변 후보 검색
+    where: 서버
+    method: gridDisk로 이웃 셀을 구하고 해당 셀에 속한 장소를 조회한 뒤 필요하면 코드에서 거리 정렬
+    complexity: O(k²)
+    note: PostGIS 반경 검색을 대체한다
+
+  - id: ALG-05
+    name: 거리 군집 추출
+    where: AI 담당 배치, 실행 경계는 A-03에서 결정
+    method: 상가업소 좌표를 셀로 집계하고 밀도 임계값을 넘는 인접 셀을 gridDisk로 연결
+    complexity: O(n + c·k)
+    priority: P3
+    note: 실시간 연산이 아니라 사전 계산이다
+
+  - id: ALG-06
+    name: 초기 Preference와 Travel Style 산출
+    where: 서버
+    method: 여행 상황 선택 답변을 allowlist된 Preference 6축과 핵심 Travel Style 축에 각각 매핑하고 각 값을 0에서 1 범위로 저장한다
+    complexity: O(1)
+    test: 필수
+
+  - id: ALG-07
+    name: Profile Evidence 기반 갱신
+    where: AI 담당, 실행 경계와 쓰기 경로는 A-03에서 결정
+    method: 행동과 대화를 Qwen이 Preference Evidence·Style Evidence·Trip Context로 분류하고 backend가 allowlist와 score 범위를 검증한 뒤 대상 계층만 갱신한다
+    uses: [profile_evidence]
+    complexity: O(e)
+    note: Trip Context는 users의 장기 점수를 갱신하지 않으며 traveler_type을 계산하지 않는다
+
+  - id: ALG-08
+    name: 일정 실현 가능성 검증
+    where: AI 담당, 실행 경계는 A-03에서 결정
+    method: 항목 간 이동시간과 체류시간의 합을 가용 시간과 비교해 초과분을 찾고 제거 후보를 제안한다
+    complexity: O(n)
+    note: 순서 최적화는 제약조건 알고리즘, 제거 제안 문구는 생성형 AI가 맡는다
+
+ai_modules:
+  principle: 기능별 모듈과 입출력 계약을 먼저 분리하고 독립 서비스 여부는 A-03에서 결정한다
+  modules:
+    - {id: AI-01, name: 일정 검증과 동선 생성, type: 알고리즘 + 생성형}
+    - {id: AI-02, name: 취향 기반 장소 정렬, type: 규칙 기반 스코어링, note: 사용자 데이터가 없는 초기에는 학습 모델을 쓰지 않는다}
+    - {id: AI-03, name: 추천 이유 생성, type: 생성형}
+    - {id: AI-04, name: 행동 이벤트 축 분류, type: 생성형, note: 검색어 하나당 토큰이 적어 비용 부담이 낮다}
+    - {id: AI-05, name: 여행 요약 응답, type: 생성형, note: 어디를 여행했는지 수준까지만 생성한다}
+
+external_apis:
+  items:
+    - {name: Google Maps SDK for Android, use: 앱 지도 표시·검색 결과 marker·지원되는 기본 POI 클릭·STOG cell overlay, credential: restricted Android Maps API key}
+    - {name: Google Places API (New), use: 게스트 장소 검색을 포함한 Text Search (New)·Nearby Search (New)·Place Details (New), credential: backend-only Places API key, timeout_s: 3, field_mask: required}
+    - {name: Google Routes API, use: 도보·대중교통 동선 계산, credential: backend-only Routes API key, timeout_s: 3, field_mask: required}
+    - {name: Kakao Login SDK, use: 소셜 로그인, credential: Native App Key}
+    - {name: Kakao share recognition, use: 공유 담기 원본 carrier 인식, credential: none}
+    - name: "[승인] 기상청_단기예보 조회서비스"
+      endpoint:
+        base: "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0"
+        operations: ["/getUltraSrtNcst", "/getUltraSrtFcst", "/getVilageFcst", "/getFcstVersion"]
+      credential: KMA_SHORT_TERM_FORECAST_SERVICE_KEY
+      request_key: "serviceKey (data.go.kr 표의 ServiceKey 표기와 casing 충돌 확인 필요)"
+      response_param: dataType
+      response: [JSON, XML]
+      source: "https://www.data.go.kr/data/15084084/openapi.do"
+      use: 날씨 규칙 엔진
+      timeout_s: 3
+    - name: "[승인] 소상공인시장진흥공단_상가(상권)정보_API"
+      endpoint:
+        base: "https://apis.data.go.kr/B553077/api/open/sdsc2"
+        operations: ["/storeZoneOne", "/storeListInDong", "/baroApi", "/storeZoneInRadius", "/storeZoneInRectangle", "/storeZoneInAdmi", "/storeOne", "/storeListInBuilding", "/storeListInPnu", "/storeListInArea", "/storeListInRadius", "/storeListInRectangle", "/storeListInPolygon", "/storeListInUpjong", "/storeListByDate", "/reqStoreModify", "/largeUpjongList", "/middleUpjongList", "/smallUpjongList"]
+      credential: SME_COMMERCIAL_AREA_SERVICE_KEY
+      request_key: "operation별 servicekey 또는 ServiceKey"
+      response_param: "type (operation별 지원 여부 확인)"
+      response: [JSON, XML]
+      provider_base: "https://bigdataapi.sbiz.or.kr/api/open/sdsc2"
+      source: "https://www.data.go.kr/data/15012005/openapi.do"
+      use: 거리 군집 추출
+      timeout_s: 배치
+    - name: "[승인] 한국관광공사_관광사진 정보_GW"
+      endpoint:
+        base: "https://apis.data.go.kr/B551011/PhotoGalleryService1"
+        operations: ["/galleryList1", "/galleryDetailList1", "/gallerySyncDetailList1", "/gallerySearchList1"]
+      credential: TOUR_PHOTO_SERVICE_KEY
+      request_key: serviceKey
+      required_params: [MobileOS, MobileApp]
+      response_param: _type
+      response: [JSON, XML]
+      source: "https://www.data.go.kr/data/15101914/openapi.do"
+      use: 관광 사진 정보
+      timeout_s: 배치
+    - name: "[승인] 한국관광공사_국문 관광정보 서비스_GW"
+      endpoint:
+        base: "https://apis.data.go.kr/B551011/KorService2"
+        operations: ["/areaCode2", "/detailPetTour2", "/categoryCode2", "/areaBasedList2", "/locationBasedList2", "/searchKeyword2", "/searchFestival2", "/searchStay2", "/detailCommon2", "/detailIntro2", "/detailInfo2", "/detailImage2", "/lclsSystmCode2", "/areaBasedSyncList2", "/ldongCode2"]
+      credential: TOUR_API_SERVICE_KEY
+      request_key: serviceKey
+      required_params: [MobileOS, MobileApp]
+      response_param: _type
+      response: [JSON, XML]
+      source: "https://www.data.go.kr/data/15101578/openapi.do"
+      use: 관광지·관광 이미지·phase_1 지역 행사 동기화
+      timeout_s: 배치
+    - {name: 공공데이터 지역 행사, status: active_phase_one, use: F-17 nearby 읽기 전용 행사 카드, timeout_s: configured later}
+    - {name: 한국관광공사 무장애 정보, use: 장소 접근성 표시, timeout_s: 배치}
+    - {name: 카카오 사용자 정보, endpoint: kapi.kakao.com/v2/user/me, use: 소셜 로그인 토큰 검증, timeout_s: 3}
+    - {name: 네이버 사용자 정보, endpoint: openapi.naver.com/v1/nid/me, use: 소셜 로그인 토큰 검증, timeout_s: 3}
+  policy:
+    - 정적이거나 변동이 느린 공공데이터는 실시간 호출하지 않고 동기화해 자체 DB에서 조회한다
+    - 외부 API 실패는 기능 전체를 막지 않는다. 캐시값이나 빈 결과로 응답한다
+
+trip_mode_transitions:
+  uses: [dormant_after_minutes]
+  rules:
+    - {from: none, to: active, trigger: 일정 시작일 도래 또는 하단 중앙 버튼}
+    - {from: active, to: dormant, trigger: 셀 전환 없이 임계 시간 경과, notify: false}
+    - {from: active, to: dormant, trigger: 배터리 15퍼센트 이하, notify: true}
+    - {from: dormant, to: active, trigger: 저전력 움직임 감지}
+    - {from: any, to: ended, trigger: 일정 종료일 자정, notify: true}
+  note: dormant 진입 시 알림을 보내지 않는다. 카페나 전시 관람 중 반복 알림이 된다
+
+resilience:
+  timeouts:
+    - {target: 외부 지도 및 공공데이터, seconds: 3, on_fail: 캐시값 또는 빈 결과}
+    - {target: AI 실행 경계, seconds: 15, on_fail: 앱에 로딩 표시, 동기 대기 금지, note: 독립 서비스 선택 시 적용}
+    - {target: 위치 전송, seconds: 2, on_fail: 앱 로컬 큐에 보관 후 재전송}
+  offline:
+    rule: 위치는 앱 로컬 DB에 먼저 저장하고 서버 전송은 그 다음이다
+    rationale: 네트워크가 끊겨도 여행 기록에 구멍이 생기면 안 된다
+  rollback:
+    - {case: 쿠폰 사용, method: 꿀 차감과 사용 확정을 한 트랜잭션으로 묶는다, note: 실패 시 원장에 반대 부호 행을 추가한다}
+    - {case: 사진 업로드, order: GCS 업로드 성공 후 DB 삽입, note: 순서를 뒤집으면 존재하지 않는 사진을 가리키는 레코드가 생긴다}
+  idempotency:
+    - visit은 client_visit_id, basket_item은 client_item_id와 불변 payload_fingerprint를 참여자·여행 범위에서 사용한다
+    - 같은 key와 같은 payload 재전송은 최초 응답을 반환하고 같은 key의 다른 payload는 409로 거부한다
+    - 여행 종료 전에 반영된 visit 재전송은 ended 뒤에도 확인 응답한다
+    - 쿠폰 발급은 클라이언트 생성 key와 DB 고유 제약으로 중복 요청을 막는다
+
+performance:
+  map_rendering:
+    - 지도 idle 이벤트에서만 조회한다. 드래그와 핀치 중에는 요청하지 않는다
+    - 디바운스 300ms
+    - 조회한 영역은 캐시해 되돌아왔을 때 재요청하지 않는다
+    - 줌 12 이하에서는 셀 레이어를 끄고 클러스터 마커로 전환한다
+  photo:
+    - 피드는 썸네일만 사용한다
+    - 원본은 상세 보기와 인스타 내보내기에서만 로드한다
+
+complexity_estimate:
+  note: 대회 데모 규모 기준 추정치다
+  rows:
+    - {table: visits, per_trip: 수십 건, reason: 셀 전환 시에만 행이 생긴다}
+    - {table: photos, per_trip: 10에서 50건}
+    - {table: cell_stats, total: 콘텐츠가 생긴 셀 수만큼}
+    - {table: places, total: 권리가 확인된 catalog 동기화분 + 사용자 확인으로 필요한 비공개 참조}
+  hot_paths:
+    - {path: "GET /cells", frequency: 최다, mitigation: 좌표 범위 인덱스와 앱 캐시}
+    - {path: "POST /trips/{id}/visits", frequency: 여행 중 수십 회, mitigation: 앱에서 셀 전환만 걸러 전송}
+
+media:
+  photo:
+    aspect_ratio: "4:3"
+    aspect_rationale: 규격을 하나로 고정해 화면과 내보내기 처리 분기를 없앤다
+    stored:
+      - {kind: original, size: 2048x1536, format: JPEG, quality: 85, approx_size: 1에서 2MB, use: 상세 보기와 인스타그램 내보내기}
+      - {kind: thumbnail, size: 640x480, format: JPEG, approx_size: 50KB, use: 피드와 보관함과 셀 표시}
+    resize_where: 앱에서 촬영 직후 또는 갤러리 선택 직후 두 장을 만들어 업로드한다
+    resize_rationale:
+      - 여행 중 LTE 업로드에서 가장 큰 제약은 서버 CPU가 아니라 사용자의 데이터 요금이다
+      - 앱에서 줄이면 장당 1에서 2MB, 원본을 올리면 8에서 12MB다
+      - 안드로이드 기본 API로 처리되며 추가 라이브러리가 필요 없다
+    device_copy:
+      save_to_gallery: false
+      method: 사용자가 다운로드 버튼을 눌러 기기에 저장한다
+      where:
+        - 촬영 화면에서 촬영 직후
+        - 보관함에서 지난 사진을 볼 때
+      downloaded_size: 2048x1536 저장본
+      downloaded_size_rationale: >-
+        원본 4000x3000은 서버로 올라가지 않으므로 나중 다운로드에는 존재하지 않는다.
+        촬영 직후와 나중 다운로드가 서로 다른 크기를 주면 사용자가 혼란스럽고 코드도 갈라진다.
+        2048은 인스타그램 1080의 두 배라 실사용에 충분하다
+      tradeoff: 다운로드하지 않은 사진의 원본 화질은 보존되지 않는다. 촬영 화면에서 다운로드를 유도한다
+    share_export:
+      not_api: Instagram Graph API를 사용하지 않는다
+      not_api_rationale:
+        - Graph API 콘텐츠 게시는 비즈니스 또는 크리에이터 계정과 연결된 페이스북 페이지를 요구한다
+        - Basic Display API가 2024년 12월 종료되어 개인 계정은 API 접근 자체가 없다
+        - Meta 앱 심사가 제출 한 건당 2에서 4주 걸린다. 4주 일정에 들어갈 수 없다
+        - 인텐트는 OS 기능이라 계정 종류 제한도 심사도 없다
+      our_role: 파일을 넘기는 것까지다. 게시는 사용자가 인스타그램 앱에서 직접 한다
+      what_transfers:
+        yes: [이미지 파일]
+        no: [캡션, 위치 태그, 해시태그, 계정 태그]
+        note: 인스타그램은 갤러리에서 고른 사진과 구분하지 못한다. STOG에서 보냈다는 흔적이 남지 않는다
+      paths:
+        - id: feed
+          priority: P1
+          action: ACTION_SEND
+          package: com.instagram.android
+          app_id_required: false
+          result: 인스타그램 편집 화면에 이미지가 로드된 상태로 열린다. 사용자가 편집 후 게시한다
+        - id: story
+          priority: P2
+          action: com.instagram.share.ADD_TO_STORY
+          package: com.instagram.android
+          app_id_required: true
+          app_id_note: source_application 엑스트라에 Facebook App ID를 넣는다. 콘솔 등록만 필요하고 앱 심사와는 다르다
+          detail: 배경 이미지와 스티커 레이어를 분리해 보낼 수 있다
+          risk: 기기와 버전에 따라 크래시나 빈 카메라 화면이 보고된 사례가 있다
+          fallback: 실패 시 ACTION_SEND로 넘긴다. 인스타그램이 자체 화면에서 스토리 추가 선택지를 제공한다
+      requirements:
+        - id: fileprovider
+          rule: FileProvider로 content URI를 만든다
+          why: 안드로이드 7부터 file URI를 다른 앱에 넘기면 FileUriExposedException으로 크래시한다
+        - id: uri_permission
+          rule: FLAG_GRANT_READ_URI_PERMISSION을 걸고 queryIntentActivities로 찾은 패키지에 grantUriPermission을 호출한다
+          why: 플래그만으로는 인스타그램이 파일을 읽지 못하는 경우가 있다
+        - id: clipdata
+          rule: setClipData도 함께 설정한다
+          why: 공유 시트 미리보기는 EXTRA_STREAM이 아니라 ClipData를 참조한다
+        - id: preflight
+          rule: 인스타그램 설치 여부를 미리 확인하고 미설치 시 안내한다
+      android_limitation: 안드로이드에서는 캡션을 코드로 미리 채울 수 없다. iOS와 달리 넘긴 텍스트를 인스타그램이 무시한다
+      branding_note: 워터마크를 이미지에 합성하지 않으면 인스타그램에 STOG 흔적이 남지 않는다
+      instagram_post: 2048x1536 저장본을 넘긴다
+      instagram_story: 내보내기 시점에 앱에서 9대16 캔버스 가운데 배치하고 상하를 검게 채운다
+      story_rationale: 미리 만들어 저장하면 사용하지 않는 파일이 용량만 차지한다
+    size_rationale: >-
+      인스타그램은 업로드 시 1080px로 압축한다.
+      2048px은 그 두 배라 크롭하거나 비율을 바꿔도 화질이 남는다.
+      안드로이드 화면 폭이 대부분 1080px이라 상세 보기에도 충분하다
+    rejected:
+      - option: Cloud Run Functions 리사이즈
+        reason: >-
+          함수는 GCS 도착 후 실행되므로 앱이 원본을 그대로 올려야 한다.
+          업로드 용량 문제가 해결되지 않고 썸네일 생성이 비동기라 직후 몇 초간 이미지가 없다
+        revisit_when: [원본 보관이 필요해질 때, 저장 규격이 3개 이상이 될 때, iOS를 추가해 리사이즈 코드가 중복될 때]
+      - option: 4K 원본 보관
+        reason: 50장 여행이면 500MB에 이른다
+      - option: Cloud CDN
+        reason: >-
+          데모 규모에서는 캐시 히트가 거의 없고 HTTP 로드밸런서 고정 요금이 발생한다.
+          버킷을 서울 리전에 두고 피드에 썸네일만 쓰면 체감 차이가 없다
+        revisit_when: [실사용 트래픽이 발생한 뒤]
+        note: 나중에 버킷 앞에 로드밸런서를 끼우면 되므로 데이터 마이그레이션 부담이 없다
+  storage:
+    bucket_region: asia-northeast3
+    region_rationale: 국내 사용자 대상이므로 서울 리전이 지연을 가장 낮춘다
+
+data_sync:
+  principle: 변동 속도에 따라 다운로드와 실시간 호출을 나눈다
+  static_download:
+    note: 스케줄링하지 않는다. 로컬 적재 스크립트를 한 번 실행한다
+    datasets:
+      - 문화재와 박물관과 관광지
+      - 소상공인시장진흥공단 상가업소 정보
+      - 한국관광공사 무장애 정보
+    benefit: 공식 지역 특색 관광 장소만 cell_id로 Cell 조회에 참여하고 일반 장소는 좌표 검색에 사용한다
+  catalog_import_policy:
+    current_sources: [TOUR_API, AREA_RESTAURANT]
+    excluded_sources: [KAKAO_LOCAL]
+    excluded_reason: 권리·재사용 필드·공개 기준 확인 전에는 canonical catalog에 적재하지 않는다
+    functional_categories: [ATTRACTION, FOOD, CAFE, ACCOMMODATION, SHOPPING, TRANSPORT, SERVICE, OTHER]
+    public_cell_evidence: [행정 지정, 한국관광공사 공식 관광 분류, 전북특별자치도 공식 관광 분류]
+    public_cell_rule: >-
+      public_cell_evidence 중 하나로 지역 특색 근거가 확인되고 catalog_status가 public이며
+      active place_source_record와 applicable license_snapshot이 모두 있을 때만
+      public_cell_eligible을 true로 저장한다. 공식 향토음식점·전통시장 같은 지역성 예외를 제외한
+      일반 음식점·숙소·상점은 lat·lng만 보존하고 검색·상세·사용자 활동에 사용한다.
+    search_expansion:
+      catalog: [한국관광공사 문화·역사·자연·체험·박물관, 지자체 공식 시설·문화재 공개 데이터]
+      live_fallback: Google Places
+      condition: source license와 reusable_fields를 확인한 뒤 반복 import한다
+    enrichment:
+      aliases: 출처 별칭 또는 사용자 확인 별칭만 place_aliases에 저장하고 normalized_name·compact_name·pg_trgm으로 검색한다
+      operational_fields: [opening_hours, estimated_cost, parking_info, reservation_info]
+      atmosphere: 승인된 trait 매핑 또는 출처·사용자 확인 태그만 저장한다
+      representative_image: place_source_images에서 license_snapshot과 reusable을 통과한 출처 사진만 연결한다
+      source_image_contract:
+        fields: [source_image_id, source_url, source_digest, reusable]
+        runtime_projection: photo_urls
+        runtime_url_rule: 승인된 license_snapshot과 reusable을 통과한 HTTPS source_url만 공개한다
+        reusable_rule: >-
+          source license_decision이 승인되고 reusable_fields에 image가 포함되며
+          개별 이미지 reusable이 true인 경우에만 place_source_images에 적재한다.
+          나머지 이미지 후보는 저장하지 않는다.
+      missing_values: null로 보존하며 추측하거나 생성하지 않는다
+    popularity: own visit·like·public photo가 충분해진 뒤 별도 집계로 보강하며 외부 평점은 초기 판정에 사용하지 않는다
+    itinerary_boundary: 숙소와 관광지의 순서·체류·이동 연결은 AI 일정과 알고리즘이 처리하고 catalog Cell 판정과 분리한다
+    cleaning:
+      target: localhost:5432/stog_canonical_dev
+      schema_baseline: Flyway V17
+      owner: agent
+      status: complete
+      exclusive_plan: .omo/plans/stog-canonical-db-cleaning.md
+      protected_targets: [legacy local stog, Cloud stog_0]
+      current_run: 전용 계획의 backup·restore proof와 dry-run 및 단일 transaction 정제를 완료했다
+      duplicate_rule: normalized name·address와 서로 다른 provider 근거가 일치하고 place_merge_distance_m 이하인 후보만 가장 오래된 places.id로 병합한다
+      legacy_public_fields: [name, address, description, opening_hours, visit_minutes]
+      future_expansion: source snapshot별 bounded batch를 catalog_import_runs·catalog_import_provenance에 기록하고 idempotent하게 중단·재개한다
+      rule: 다른 P0 P1 작업은 정제 DML을 수행하지 않고 완료된 catalog를 보존한다
+  scheduled:
+    trigger: Cloud Scheduler
+    runner: Cloud Run Job
+    frequency: 일 1회 새벽
+    datasets: [events]
+    design: Cloud Scheduler가 Cloud Run Job을 호출해 TourAPI 행사 데이터를 upsert하고 종료·철회 행사를 retire한다. Spring @Scheduled는 사용하지 않는다
+  realtime:
+    datasets: [날씨, 대중교통 경로, 장소 키워드 검색]
+  forbidden:
+    - item: Spring @Scheduled
+      reason: >-
+        Cloud Run은 요청이 없으면 인스턴스를 0으로 축소하므로 스케줄러가 실행될 인스턴스가 존재하지 않는다.
+        동기화가 조용히 멈춘다
+
+open_items:
+  - {id: A-02, question: 데이터셋별 다운로드 원본 형식과 적재 스크립트 위치}
+  - {id: A-03, question: AI 기능을 독립 FastAPI 서비스로 배포할지 API 서버와 같은 실행 단위에 둘지}
+  - {id: A-04, question: 그룹장이 참여자가 남은 그룹 여행에서 나가려 할 때 승계 또는 이탈 제한을 어떻게 처리할지}
+  - {id: A-05, question: 그룹 여행 초대 링크의 만료 시간과 재발급 및 폐기 정책}
+  - {id: A-06, question: 공유 원본·여러 장소 후보·사용자 결정 이력을 basket_items에 확장할지 별도 저장 구조로 둘지}
+  - {id: A-07, question: provider별 공유 결과의 저장·재사용·공개 가능 필드와 보관 기간}
+  - {id: A-08, question: 여행 가이드 AI의 입력·출력·사용자 확인·개인정보 최소화 계약}
+  - {id: A-09, question: 네이버 로그인 완료 Android App Link의 HTTPS host와 path}

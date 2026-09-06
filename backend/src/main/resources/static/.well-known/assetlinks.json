@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.stog.app",
+      "sha256_cert_fingerprints": [
+        "4B:81:09:4A:43:6F:7D:8D:4A:00:F1:F7:96:30:3B:E2:58:1B:D7:75:AF:A4:7B:25:CC:D0:54:44:78:63:D4:28"
+      ]
+    }
+  }
+]

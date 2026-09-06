@@ -1,0 +1,7 @@
+CREATE TABLE oauth_states (
+    id BIGSERIAL PRIMARY KEY,
+    state_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -1,0 +1,83 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: stog-backend
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cloudsql-instances: team-05-504502:asia-southeast1:stog-postgre-dev
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 60
+      serviceAccountName: stog-backend-runtime@team-05-504502.iam.gserviceaccount.com
+      containers:
+        - image: asia-southeast1-docker.pkg.dev/team-05-504502/stog/stog-backend:dev
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod,gcs-write
+            - name: GCS_BUCKET
+              value: stog-media
+            - name: GCS_SIGNED_URL_TTL
+              value: 5m
+            - name: GCS_SIGNER_SERVICE_ACCOUNT
+              value: stog-backend-runtime@team-05-504502.iam.gserviceaccount.com
+            - name: GOOGLE_PLACES_BASE_URL
+              value: https://places.googleapis.com/v1
+            - name: GOOGLE_ROUTES_BASE_URL
+              value: https://routes.googleapis.com
+            - name: DB_USERNAME
+              value: stog_app
+            - name: DB_URL
+              value: jdbc:postgresql:///stog_canonical?cloudSqlInstance=team-05-504502:asia-southeast1:stog-postgre-dev&socketFactory=com.google.cloud.sql.postgres.SocketFactory&cloudSqlRefreshStrategy=lazy
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stog-canonical-runtime-password
+                  key: latest
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stog-jwt-secret
+                  key: latest
+            - name: GOOGLE_WEB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: stog-google-web-client-id
+                  key: latest
+            - name: GOOGLE_PLACES_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stog-google-places-api-key
+                  key: latest
+            - name: GOOGLE_ROUTES_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stog-google-routes-api-key
+                  key: latest
+            - name: NAVER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: stog-naver-client-id
+                  key: latest
+            - name: NAVER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stog-naver-client-secret
+                  key: latest
+            - name: NAVER_REDIRECT_URI
+              value: https://stog-backend-824014926086.asia-southeast1.run.app/auth/naver/callback
+            - name: STOG_APP_LINK_URI
+              value: stog://oauth
+  traffic: []

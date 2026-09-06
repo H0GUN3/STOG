@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="recording_location_distance_filter_m">50</integer>
+    <integer name="recording_cell_transition_confirm">2</integer>
+    <integer name="recording_cell_resolution">10</integer>
+    <integer name="recording_dormant_after_minutes">60</integer>
+    <integer name="recording_visit_dwell_minutes">30</integer>
+    <integer name="recording_battery_cutoff_percent">15</integer>
+    <integer name="recording_upload_timeout_seconds">2</integer>
+</resources>

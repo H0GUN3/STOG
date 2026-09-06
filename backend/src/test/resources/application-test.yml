@@ -1,0 +1,28 @@
+JWT_SECRET: test-only-jwt-secret-with-at-least-thirty-two-bytes
+NAVER_CLIENT_ID: test-only-client
+NAVER_CLIENT_SECRET: test-only-secret
+
+spring:
+  config:
+    import: optional:file:.env.test[.properties]
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/stog_backend_test
+    username: stog_backend_test
+    password: ${TEST_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://127.0.0.1:5432/stog_backend_test
+    user: stog_backend_test
+    password: ${TEST_DB_PASSWORD}
+
+stog:
+  google:
+    places:
+      base-url: https://places.example.test/v1
+    routes:
+      base-url: https://routes.example.test
+  test-database:
+    enforce: true

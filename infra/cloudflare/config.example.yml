@@ -1,0 +1,9 @@
+# Copy this file to config.yml and replace every REPLACE_* value.
+# Keep config.yml and the tunnel credentials file out of source control.
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: REPLACE_WITH_ABSOLUTE_CREDENTIALS_FILE
+
+ingress:
+  - hostname: REPLACE_WITH_STOG_API_HOSTNAME
+    service: http://127.0.0.1:8080
+  - service: http_status:404

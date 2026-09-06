@@ -1,0 +1,3 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.stog.backend.config.TestDatabaseIsolationEnvironmentPostProcessor,\
+com.stog.backend.config.LocalRuntimeMigrationSafetyEnvironmentPostProcessor

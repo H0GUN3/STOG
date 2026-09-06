@@ -1,0 +1,22 @@
+# Enable with local-import,catalog-refresh for the Cloud Run Job command only.
+# Cloud Scheduler invokes that Job; this profile never enables in-process scheduling.
+stog:
+  catalog:
+    refresh:
+      run-on-startup: ${CATALOG_REFRESH_RUN_ON_STARTUP:false}
+      # Set only for a local image-enrichment run; it preserves place details.
+      images-only: ${CATALOG_REFRESH_IMAGES_ONLY:false}
+      tour-api:
+        # The URL identifies one approved TourAPI JSON export operation and may
+        # contain its non-secret required parameters (for example MobileOS/App).
+        url: ${TOUR_API_CATALOG_URL:}
+        service-key: ${TOUR_API_SERVICE_KEY:}
+        connect-timeout: ${TOUR_API_CONNECT_TIMEOUT:3s}
+        read-timeout: ${TOUR_API_READ_TIMEOUT:3s}
+      tour-photo:
+        url: ${TOUR_PHOTO_API_URL:https://apis.data.go.kr/B551011/PhotoGalleryService1/gallerySearchList1}
+        service-key: ${TOUR_PHOTO_SERVICE_KEY:}
+        page-size: ${TOUR_PHOTO_PAGE_SIZE:10}
+        max-places: ${TOUR_PHOTO_MAX_PLACES:1000}
+        connect-timeout: ${TOUR_PHOTO_CONNECT_TIMEOUT:3s}
+        read-timeout: ${TOUR_PHOTO_READ_TIMEOUT:10s}

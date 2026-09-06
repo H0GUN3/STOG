@@ -1,0 +1,1162 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "40721f757507bc5531e6d7102652756e",
+    "entities": [
+      {
+        "tableName": "account_ownership",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`account_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_account_ownership_account_id_user_id",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_account_ownership_account_id_user_id` ON `${TABLE_NAME}` (`account_id`, `user_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "location_observations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`observation_id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `trip_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `cell_id` INTEGER NOT NULL, `lat` REAL NOT NULL, `lng` REAL NOT NULL, `observed_at` INTEGER NOT NULL, `classification_state` TEXT NOT NULL, PRIMARY KEY(`observation_id`), FOREIGN KEY(`account_id`, `user_id`) REFERENCES `account_ownership`(`account_id`, `user_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "observationId",
+            "columnName": "observation_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripId",
+            "columnName": "trip_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cellId",
+            "columnName": "cell_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lat",
+            "columnName": "lat",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lng",
+            "columnName": "lng",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedAt",
+            "columnName": "observed_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "classificationState",
+            "columnName": "classification_state",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "observation_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_location_observations_account_id_user_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_location_observations_account_id_user_id` ON `${TABLE_NAME}` (`account_id`, `user_id`)"
+          },
+          {
+            "name": "index_location_observations_observation_id_account_id_trip_id_user_id",
+            "unique": true,
+            "columnNames": [
+              "observation_id",
+              "account_id",
+              "trip_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_location_observations_observation_id_account_id_trip_id_user_id` ON `${TABLE_NAME}` (`observation_id`, `account_id`, `trip_id`, `user_id`)"
+          },
+          {
+            "name": "index_location_observations_account_id_trip_id_observed_at",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "trip_id",
+              "observed_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_location_observations_account_id_trip_id_observed_at` ON `${TABLE_NAME}` (`account_id`, `trip_id`, `observed_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_ownership",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id",
+              "user_id"
+            ],
+            "referencedColumns": [
+              "account_id",
+              "user_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "visit_outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `observation_id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `trip_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `client_visit_id` TEXT NOT NULL, `payload_fingerprint` TEXT NOT NULL, `cell_id` INTEGER NOT NULL, `lat` REAL NOT NULL, `lng` REAL NOT NULL, `entered_at` INTEGER NOT NULL, `left_at` INTEGER NOT NULL, `status` TEXT NOT NULL, `is_interpolated` INTEGER NOT NULL, `outbox_state` TEXT NOT NULL, `retry_class` TEXT NOT NULL, `attempt_count` INTEGER NOT NULL, `last_response_code` INTEGER, `remote_visit_id` INTEGER, `review_required` INTEGER, `review_consumed_at` INTEGER, `created_at` INTEGER NOT NULL, FOREIGN KEY(`account_id`, `user_id`) REFERENCES `account_ownership`(`account_id`, `user_id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`observation_id`, `account_id`, `trip_id`, `user_id`) REFERENCES `location_observations`(`observation_id`, `account_id`, `trip_id`, `user_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observationId",
+            "columnName": "observation_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripId",
+            "columnName": "trip_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clientVisitId",
+            "columnName": "client_visit_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadFingerprint",
+            "columnName": "payload_fingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cellId",
+            "columnName": "cell_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lat",
+            "columnName": "lat",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lng",
+            "columnName": "lng",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enteredAt",
+            "columnName": "entered_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "leftAt",
+            "columnName": "left_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isInterpolated",
+            "columnName": "is_interpolated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outboxState",
+            "columnName": "outbox_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryClass",
+            "columnName": "retry_class",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastResponseCode",
+            "columnName": "last_response_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "remoteVisitId",
+            "columnName": "remote_visit_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reviewRequired",
+            "columnName": "review_required",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reviewConsumedAt",
+            "columnName": "review_consumed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_visit_outbox_account_id_user_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visit_outbox_account_id_user_id` ON `${TABLE_NAME}` (`account_id`, `user_id`)"
+          },
+          {
+            "name": "index_visit_outbox_observation_id_account_id_trip_id_user_id",
+            "unique": true,
+            "columnNames": [
+              "observation_id",
+              "account_id",
+              "trip_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_visit_outbox_observation_id_account_id_trip_id_user_id` ON `${TABLE_NAME}` (`observation_id`, `account_id`, `trip_id`, `user_id`)"
+          },
+          {
+            "name": "index_visit_outbox_account_id_trip_id_client_visit_id",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "trip_id",
+              "client_visit_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_visit_outbox_account_id_trip_id_client_visit_id` ON `${TABLE_NAME}` (`account_id`, `trip_id`, `client_visit_id`)"
+          },
+          {
+            "name": "index_visit_outbox_account_id_trip_id_outbox_state_created_at",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "trip_id",
+              "outbox_state",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visit_outbox_account_id_trip_id_outbox_state_created_at` ON `${TABLE_NAME}` (`account_id`, `trip_id`, `outbox_state`, `created_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_ownership",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id",
+              "user_id"
+            ],
+            "referencedColumns": [
+              "account_id",
+              "user_id"
+            ]
+          },
+          {
+            "table": "location_observations",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "observation_id",
+              "account_id",
+              "trip_id",
+              "user_id"
+            ],
+            "referencedColumns": [
+              "observation_id",
+              "account_id",
+              "trip_id",
+              "user_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "pending_set_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`client_upload_id` TEXT NOT NULL, `account_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `trip_id` INTEGER NOT NULL, `source` TEXT NOT NULL, `original_path` TEXT NOT NULL, `thumbnail_path` TEXT NOT NULL, `source_path` TEXT, `original_size` INTEGER NOT NULL, `thumbnail_size` INTEGER NOT NULL, `original_sha256` TEXT NOT NULL, `thumbnail_sha256` TEXT NOT NULL, `latitude` REAL, `longitude` REAL, `accuracy_m` REAL, `location_provenance` TEXT, `taken_at` TEXT, `caption` TEXT, `place_resolution_status` TEXT NOT NULL, `expected_place_id` INTEGER, `visibility` TEXT NOT NULL, `public_consent` INTEGER NOT NULL, `outbox_state` TEXT NOT NULL, `retry_class` TEXT NOT NULL, `upload_stage` TEXT NOT NULL, `attempt_count` INTEGER NOT NULL, `last_response_code` INTEGER, `error_code` TEXT, `remote_photo_id` INTEGER, `publication_status` TEXT, `acknowledged_at` INTEGER, `cleanup_complete` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`client_upload_id`), FOREIGN KEY(`account_id`, `user_id`) REFERENCES `account_ownership`(`account_id`, `user_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "clientUploadId",
+            "columnName": "client_upload_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripId",
+            "columnName": "trip_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalPath",
+            "columnName": "original_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailPath",
+            "columnName": "thumbnail_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourcePath",
+            "columnName": "source_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalSize",
+            "columnName": "original_size",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailSize",
+            "columnName": "thumbnail_size",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalSha256",
+            "columnName": "original_sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailSha256",
+            "columnName": "thumbnail_sha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "accuracyMeters",
+            "columnName": "accuracy_m",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "locationProvenance",
+            "columnName": "location_provenance",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "takenAt",
+            "columnName": "taken_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "caption",
+            "columnName": "caption",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "placeResolutionStatus",
+            "columnName": "place_resolution_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expectedPlaceId",
+            "columnName": "expected_place_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "visibility",
+            "columnName": "visibility",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publicConsent",
+            "columnName": "public_consent",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outboxState",
+            "columnName": "outbox_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryClass",
+            "columnName": "retry_class",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uploadStage",
+            "columnName": "upload_stage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastResponseCode",
+            "columnName": "last_response_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "errorCode",
+            "columnName": "error_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remotePhotoId",
+            "columnName": "remote_photo_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "publicationStatus",
+            "columnName": "publication_status",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "acknowledgedAt",
+            "columnName": "acknowledged_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cleanupComplete",
+            "columnName": "cleanup_complete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "client_upload_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_pending_set_logs_account_id_user_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_pending_set_logs_account_id_user_id` ON `${TABLE_NAME}` (`account_id`, `user_id`)"
+          },
+          {
+            "name": "index_pending_set_logs_account_id_trip_id_client_upload_id",
+            "unique": true,
+            "columnNames": [
+              "account_id",
+              "trip_id",
+              "client_upload_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_pending_set_logs_account_id_trip_id_client_upload_id` ON `${TABLE_NAME}` (`account_id`, `trip_id`, `client_upload_id`)"
+          },
+          {
+            "name": "index_pending_set_logs_account_id_trip_id_outbox_state_created_at",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "trip_id",
+              "outbox_state",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_pending_set_logs_account_id_trip_id_outbox_state_created_at` ON `${TABLE_NAME}` (`account_id`, `trip_id`, `outbox_state`, `created_at`)"
+          },
+          {
+            "name": "index_pending_set_logs_account_id_outbox_state_created_at",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "outbox_state",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_pending_set_logs_account_id_outbox_state_created_at` ON `${TABLE_NAME}` (`account_id`, `outbox_state`, `created_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_ownership",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id",
+              "user_id"
+            ],
+            "referencedColumns": [
+              "account_id",
+              "user_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "member_collection_states",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_id` TEXT NOT NULL, `trip_id` TEXT NOT NULL, `user_id` TEXT NOT NULL, `collector_state` TEXT NOT NULL, `permission_state` TEXT NOT NULL, `mode_version` INTEGER NOT NULL, `trip_end_at` INTEGER, `battery_low` INTEGER NOT NULL, `active_cell` INTEGER, `active_lat` REAL, `active_lng` REAL, `entered_at` INTEGER, `candidate_cell` INTEGER, `candidate_count` INTEGER NOT NULL, `last_accepted_lat` REAL, `last_accepted_lng` REAL, `last_accepted_at` INTEGER, `last_transition_at` INTEGER, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`account_id`, `trip_id`, `user_id`), FOREIGN KEY(`account_id`, `user_id`) REFERENCES `account_ownership`(`account_id`, `user_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripId",
+            "columnName": "trip_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectorState",
+            "columnName": "collector_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "permissionState",
+            "columnName": "permission_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeVersion",
+            "columnName": "mode_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripEndAt",
+            "columnName": "trip_end_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "batteryLow",
+            "columnName": "battery_low",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activeCell",
+            "columnName": "active_cell",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "activeLat",
+            "columnName": "active_lat",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "activeLng",
+            "columnName": "active_lng",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "enteredAt",
+            "columnName": "entered_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "candidateCell",
+            "columnName": "candidate_cell",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "candidateCount",
+            "columnName": "candidate_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAcceptedLat",
+            "columnName": "last_accepted_lat",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "lastAcceptedLng",
+            "columnName": "last_accepted_lng",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "lastAcceptedAt",
+            "columnName": "last_accepted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastTransitionAt",
+            "columnName": "last_transition_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_id",
+            "trip_id",
+            "user_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_member_collection_states_account_id_user_id",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "user_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_member_collection_states_account_id_user_id` ON `${TABLE_NAME}` (`account_id`, `user_id`)"
+          },
+          {
+            "name": "index_member_collection_states_account_id_collector_state",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "collector_state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_member_collection_states_account_id_collector_state` ON `${TABLE_NAME}` (`account_id`, `collector_state`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_ownership",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id",
+              "user_id"
+            ],
+            "referencedColumns": [
+              "account_id",
+              "user_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "pending_share_imports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`import_id` TEXT NOT NULL, `account_id` TEXT, `raw_directory_name` TEXT NOT NULL, `raw_text` TEXT, `raw_html` TEXT, `mime_type` TEXT, `source` TEXT NOT NULL, `status` TEXT NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`import_id`), FOREIGN KEY(`account_id`) REFERENCES `account_ownership`(`account_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "importId",
+            "columnName": "import_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountId",
+            "columnName": "account_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rawDirectoryName",
+            "columnName": "raw_directory_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawText",
+            "columnName": "raw_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rawHtml",
+            "columnName": "raw_html",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mime_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "import_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_pending_share_imports_account_id",
+            "unique": false,
+            "columnNames": [
+              "account_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_pending_share_imports_account_id` ON `${TABLE_NAME}` (`account_id`)"
+          },
+          {
+            "name": "index_pending_share_imports_account_id_created_at",
+            "unique": false,
+            "columnNames": [
+              "account_id",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_pending_share_imports_account_id_created_at` ON `${TABLE_NAME}` (`account_id`, `created_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "account_ownership",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "account_id"
+            ],
+            "referencedColumns": [
+              "account_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "share_import_candidates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`candidate_id` TEXT NOT NULL, `import_id` TEXT NOT NULL, `origin` TEXT NOT NULL, `title` TEXT NOT NULL, `address` TEXT, `original_url` TEXT, `candidate_order` INTEGER NOT NULL, `provider` TEXT, `external_id` TEXT, `latitude` REAL, `longitude` REAL, `category` TEXT, `canonical_place_id` INTEGER, `canonical_source_id` INTEGER, PRIMARY KEY(`candidate_id`), FOREIGN KEY(`import_id`) REFERENCES `pending_share_imports`(`import_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "candidateId",
+            "columnName": "candidate_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importId",
+            "columnName": "import_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "originalUrl",
+            "columnName": "original_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "candidateOrder",
+            "columnName": "candidate_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "externalId",
+            "columnName": "external_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "canonicalPlaceId",
+            "columnName": "canonical_place_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "canonicalSourceId",
+            "columnName": "canonical_source_id",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "candidate_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_share_import_candidates_import_id",
+            "unique": false,
+            "columnNames": [
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_share_import_candidates_import_id` ON `${TABLE_NAME}` (`import_id`)"
+          },
+          {
+            "name": "index_share_import_candidates_candidate_id_import_id",
+            "unique": true,
+            "columnNames": [
+              "candidate_id",
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_share_import_candidates_candidate_id_import_id` ON `${TABLE_NAME}` (`candidate_id`, `import_id`)"
+          },
+          {
+            "name": "index_share_import_candidates_import_id_candidate_order",
+            "unique": true,
+            "columnNames": [
+              "import_id",
+              "candidate_order"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_share_import_candidates_import_id_candidate_order` ON `${TABLE_NAME}` (`import_id`, `candidate_order`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "pending_share_imports",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "import_id"
+            ],
+            "referencedColumns": [
+              "import_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "share_import_decisions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`candidate_id` TEXT NOT NULL, `import_id` TEXT NOT NULL, `decision` TEXT NOT NULL, `trip_id` INTEGER, `client_item_id` TEXT, `payload_fingerprint` TEXT, `sync_state` TEXT NOT NULL, `retry_class` TEXT NOT NULL, `attempt_count` INTEGER NOT NULL, `last_response_code` INTEGER, `decided_at` INTEGER NOT NULL, PRIMARY KEY(`candidate_id`), FOREIGN KEY(`import_id`) REFERENCES `pending_share_imports`(`import_id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`candidate_id`, `import_id`) REFERENCES `share_import_candidates`(`candidate_id`, `import_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "candidateId",
+            "columnName": "candidate_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importId",
+            "columnName": "import_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "decision",
+            "columnName": "decision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripId",
+            "columnName": "trip_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "clientItemId",
+            "columnName": "client_item_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "payloadFingerprint",
+            "columnName": "payload_fingerprint",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "sync_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryClass",
+            "columnName": "retry_class",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attempt_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastResponseCode",
+            "columnName": "last_response_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "decidedAt",
+            "columnName": "decided_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "candidate_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_share_import_decisions_import_id",
+            "unique": false,
+            "columnNames": [
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_share_import_decisions_import_id` ON `${TABLE_NAME}` (`import_id`)"
+          },
+          {
+            "name": "index_share_import_decisions_candidate_id_import_id",
+            "unique": false,
+            "columnNames": [
+              "candidate_id",
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_share_import_decisions_candidate_id_import_id` ON `${TABLE_NAME}` (`candidate_id`, `import_id`)"
+          },
+          {
+            "name": "index_share_import_decisions_import_id_sync_state_decided_at",
+            "unique": false,
+            "columnNames": [
+              "import_id",
+              "sync_state",
+              "decided_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_share_import_decisions_import_id_sync_state_decided_at` ON `${TABLE_NAME}` (`import_id`, `sync_state`, `decided_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "pending_share_imports",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "import_id"
+            ],
+            "referencedColumns": [
+              "import_id"
+            ]
+          },
+          {
+            "table": "share_import_candidates",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "candidate_id",
+              "import_id"
+            ],
+            "referencedColumns": [
+              "candidate_id",
+              "import_id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '40721f757507bc5531e6d7102652756e')"
+    ]
+  }
+}

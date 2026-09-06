@@ -1,0 +1,470 @@
+meta:
+  document: product
+  project: STOG
+  version: 0.1
+  authority: canonical
+  depends_on: [glossary.yaml]
+  description: >-
+    STOG가 무엇이고 왜 만드는가에 대한 단일 기준.
+    용어는 glossary.yaml을 따른다. 기술 선택은 architecture.yaml에서 다룬다.
+  rules:
+    - decisions 항목은 source가 user인 것을 변경하지 않는다
+    - 새로운 판단이 필요하면 open_items에 추가하고 임의로 결정하지 않는다
+
+identity:
+  name: STOG
+  origin: STEP + LOG
+  character: STOBEE
+  one_line: 걸어온 길과 그곳에서 본 것을 셀에 담아 두는 여행 기록 및 계획 서비스
+  competition:
+    name: 공공데이터 활용 전북 AI 경진대회
+    host: 구글 클라우드 교육
+  scope:
+    initial_region: 전북
+    long_term: 지역 제한 없음
+    note: 계획서에는 확장성 언급까지만 반영한다
+  target_user:
+    primary: 전북을 여행하는 국내 여행자
+    mobility: 도보와 대중교통 중심
+  stage_priority:
+    - rank: 1
+      stage: 여행 후
+      reason: 개인의 시간과 장소를 함께 기록하는 것이 서비스의 본질
+    - rank: 2
+      stage: 여행 전
+    - rank: 3
+      stage: 여행 중
+
+problem:
+  statements:
+    - id: P-01
+      text: 기존 여행앱은 랜드마크 중심이라 객사, 웨리단길처럼 실제로 사람들이 다니는 장소가 검색되지 않는다
+    - id: P-02
+      text: SNS나 영상에서 본 장소를 찾으려면 그 동네를 직접 둘러봐야 한다
+    - id: P-03
+      text: 목적지 주변 카페와 음식점을 별도 앱에서 다시 검색해야 한다
+    - id: P-04
+      text: 일정 순서 변경과 중간 삽입이 번거로워 계획 수정 비용이 크다
+    - id: P-05
+      text: 여행이 끝나면 기록이 사진첩에 흩어지고 장소와 연결되지 않는다
+  root_cause:
+    text: 통용되는 지역명은 행정구역이나 공식 관광지 경계와 일치하지 않아 어떤 공개 데이터셋에도 존재하지 않는다
+    consequence: 검색 기반 서비스는 원리적으로 이 공백을 메울 수 없다
+  validation:
+    method: 트리플과 젠트립의 사용자 리뷰 분석
+    findings:
+      - P-01과 P-03은 두 앱 모두에서 반복 지적되는 불만이다
+      - P-04는 두 앱의 최다 불만 영역이다
+      - 두 앱 모두 계획 기능은 강점으로 평가받고 예약과 사후 대응에서 신뢰를 잃는다
+    conclusion: 문제는 실재하며 기존 서비스의 구조적 한계에서 발생한다
+
+references:
+  - name: 트리플
+    solved: [일정과 동선 설계, 동행자 협업, 계획 올인원]
+    unsolved: [검색되지 않는 장소, 일정 순서 변경 시 지도 초기화, 예약과 환불 신뢰]
+    lesson: 계획 기능으로 쌓은 신뢰가 예약 사고 한 번으로 훼손된다. STOG의 쿠폰이 같은 위치에 있다
+
+  - name: 젠트립
+    solved: [숨은 명소와 로컬 정보의 양, 혼자 여행 편의 정보, 지역 단일 집중]
+    unsolved: [첫 사용 시 기능 과다, 일정 순서 변경 불편, 공유 담기 링크 실패]
+    lesson: 기능이 많으면 첫 진입에서 무엇을 눌러야 할지 알 수 없게 된다. STOG는 젠트립보다 기능이 많다
+
+  - name: Hexplorer
+    type: iOS 앱
+    fact:
+      - H3 육각 격자로 전 세계를 균등 면적 셀로 나눈다
+      - 백그라운드 GPS로 이동을 추적하고 커버리지에 따라 셀에 불이 들어온다
+      - 개발자가 어떤 데이터도 수집하지 않는다고 명시했다
+    implication: 서버가 없으므로 공유, 추천, 공공데이터 연동, 커뮤니티가 구조적으로 불가능하다
+    lesson: 육각형 커버리지 맵 자체는 이미 존재하는 아이디어다. 차별점은 육각형이 아니라 그 안에 무엇이 담기는가에 있다
+
+  - name: 셋로그
+    role: 참고 BM
+    lesson: 시간 단위로 일상을 올리듯 공간 단위로 기록을 남기는 형태
+
+  - name: tripstone
+    role: AI 일정 생성과 유료화 모델 참고
+
+  - name: visitgangnam
+    role: 블록과 관광정보 카드 디자인 참고
+
+  - name: loci social map
+    role: 서비스 형태 이해용 참고
+
+differentiation:
+  core_message: >-
+    공공데이터가 커버하지 못하는 공백을 사용자 행동 데이터로 메우고,
+    그 결과물을 다시 공공적 가치를 가진 지역 상권 데이터로 되돌려준다
+  claims:
+    - id: DF-01
+      vs: Hexplorer
+      text: Hexplorer는 셀을 채우는 앱이고 STOG는 셀에 담는 앱이다
+    - id: DF-02
+      vs: 트리플, 젠트립
+      text: 기존 앱은 자체 DB에 없으면 담을 수 없다. STOG는 공유 담기로 받아오고 없는 거리는 만들어낸다
+    - id: DF-03
+      vs: 전체
+      text: 검색이 아니라 사용자의 실제 이동과 사진에서 지역 정보가 생성된다
+
+solution:
+  street_naming:
+    purpose: P-01과 root_cause 해결
+    stages:
+      - stage: 1
+        name: 부트스트랩
+        method: 소상공인시장진흥공단 상가업소 정보로 카페, 음식점, 주점 밀도가 높은 인접 셀 군집을 자동 추출
+        output: 거리 후보
+      - stage: 2
+        name: 명명
+        method: 사용자 제보와 투표
+        output: 거리
+      - stage: 3
+        name: 검증과 유지
+        method: 사진 수, 방문 수, 좋아요로 경계를 갱신
+        fuel: 쿠폰이 사용자를 현장으로 보내 이 단계의 데이터를 만든다
+
+  reward_loop:
+    purpose: 여행 중 앱을 켜고 사진을 찍을 즉시 동기 제공
+    framing: 마케팅 비용이 아니라 데이터 수집 비용
+    partner_value: 노출이나 클릭이 아니라 실제 방문에만 과금된다
+    settlement_basis: coupon_redeem 시점
+    invariant: 제휴 여부는 좋아요, 방문 수, 불타는 셀 판정에 어떤 영향도 주지 않는다
+
+  planning:
+    intake: [검색, 공유 담기, 지도 셀]
+    arrangement: 카드 대시보드에서 순서 변경과 중간 삽입
+    ai_role: [실현 가능성 판단, 일정 조정 제안, 도보 및 대중교통 동선 생성]
+
+features:
+  - {id: F-01, ko: 회원가입과 로그인, context: social, priority: P0}
+  - {id: F-02, ko: 셀 렌더링, context: space, priority: P0, note: 기록 지도에서는 본인 기록이 있거나 landmark가 있는 셀만 표시하고 공개 사용자 사진은 섞지 않으며 본인 최신 사진 썸네일을 대표 이미지로 사용한다. 발견 진입은 선택 장소를 지도와 장소 바텀시트로 표시한다}
+  - {id: F-03, ko: 여행 모드와 위치 수집, context: record, priority: P0}
+  - {id: F-04, ko: STOG Set Log Camera, context: record, priority: P0, note: "홈 우측 하단 action에서 앱 내부 카메라를 열고 사진·촬영 시점 spot·시간·trip을 동결한다. 촬영 후 장소·셀·한 줄 기록·공개 의도를 확인하는 기록 확인 화면을 거쳐 기존 photo aggregate에 저장하며, 갤러리 선택은 EXIF 출처를 보존한다"}
+  - {id: F-05, ko: 일정 바구니, context: plan, priority: P0, note: 지도 검색과 공유 담기로 확인한 항목은 사용자가 선택하거나 새로 만든 여행의 일정 바구니에 들어가며 검색 자체는 여행 선택과 로그인에 종속되지 않는다}
+  - {id: F-06, ko: 카드 대시보드, context: plan, priority: P0, note: 내 여행에서 여행 목록·참여자·일정 바구니·날짜별 일정 항목·순서 조정을 관리하며 장소 검색 UI와 여행 중 실행 UI는 포함하지 않는다. 로그인하지 않은 사용자도 위치 권한을 허용하면 현재 위치 주변 공개 장소 추천 카드를 읽을 수 있고, 담기 동작은 로그인 후 수행한다}
+  - {id: F-07, ko: 보관함, context: record, priority: P0}
+
+  - {id: F-08, ko: 공유 담기로 링크 블록 담기, context: plan, priority: P1, note: DF-02의 근거}
+  - {id: F-09, ko: AI 일정 검증과 동선 생성, context: plan, priority: P1}
+  - {id: F-10, ko: 공공데이터 아이콘 배지 셀, context: space, priority: P1}
+  - {id: F-11, ko: 방문과 통과 판정 및 후기 슬라이드, context: record, priority: P1}
+  - {id: F-12, ko: 공개 동선 피드와 좋아요, context: social, priority: P1}
+  - {id: F-24, ko: 캘린더, context: plan, priority: P1, note: 여행 일정을 잡는 화면이자 월별 여행 관리 뷰. 새 여행에서는 이름과 날짜를 입력하고 날짜 카드를 누르면 기존 화면 위에 일요일 시작의 2회 선택 범위 바텀 시트를 연다. 여행 모드 자동 활성화가 이 일정을 기준으로 동작한다}
+  - {id: F-25, ko: 사진 게시물과 사진 좋아요, context: social, priority: P1, note: 셀 대표 사진 선정의 근거가 된다}
+  - {id: F-26, ko: 사진 게시물 댓글과 저장 피드, context: social, priority: P1, note: 발견 사진 게시물은 좋아요·댓글·저장을 제공하고 댓글 목록·작성과 저장·취소는 서버 계약으로 유지한다. 저장된 발견 피드는 사용자 화면에 노출하지 않는다}
+
+  - {id: F-13, ko: 꿀 배지 셀과 쿠폰 발급, context: reward, priority: P2}
+  - {id: F-14, ko: 쿠폰 QR 사용 확정과 롤백, context: reward, priority: P2}
+  - {id: F-15, ko: 그룹 여행, context: social, priority: P2, note: 그룹장만 초대 링크 생성과 참여자 삭제를 하고 모든 참여자는 일정 바구니와 여행 일정을 수정한다}
+  - {id: F-16, ko: 온보딩 설문과 3계층 성향 프로필, context: profile, priority: P2, note: Preference와 Travel Style은 장기 점수로, Trip Context는 이번 여행 상태로 분리한다. 하나의 traveler_type을 확정하지 않는다}
+  - {id: F-17, ko: 지역 행사 페이지와 알림, context: plan, priority: P2, note: "phase_1은 로그인 전 현재 위치 주변의 읽기 전용 행사 카드와 동기화까지 구현하고 상세 페이지·알림은 후속 범위로 둔다"}
+  - {id: F-18, ko: 무장애 여행정보 표시, context: plan, priority: P2}
+  - {id: F-19, ko: 인스타그램 내보내기, context: record, priority: P2, note: 사진 파일을 인스타그램 편집 화면에 전달하는 데서 끝난다}
+
+  - {id: F-20, ko: 거리 후보 군집 추출, context: reward, priority: P3, note: 전주 1~2곳 사전 계산}
+  - {id: F-21, ko: 거리 명명과 투표, context: reward, priority: P3}
+  - {id: F-22, ko: 제휴처 대시보드와 정산, context: reward, priority: P3}
+  - {id: F-23, ko: 그룹 성향 기반 AI 피드백, context: profile, priority: P3}
+
+priority_levels:
+  P0: 심사위원이 직접 조작하는 경로. 결함을 남기지 않는다
+  P1: 없으면 STOG가 성립하지 않는 차별 기능. 완전 동작을 목표로 한다
+  P2: 화면과 로직을 완성하되 데이터 범위는 제한한다
+  P3: 실시간 연산 대신 사전 계산된 결과로 흐름을 보여준다
+
+assignment:
+  team: {lead_fe_be: 1, support: 1, db: 1, ai: 2, weeks: 4}
+  lead_fe_be:
+    features: [F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-08, F-10, F-11, F-24]
+    note: P0 전체와 P1 다수를 단독으로 맡는다. F-24 캘린더는 F-03 여행 모드 자동 활성화의 전제라 함께 맡는다
+  support:
+    features: [F-12, F-15, F-17, F-19, F-25]
+    note: P0 경로와 코드가 겹치지 않는 소셜 및 플랜 계열
+  db:
+    features: [F-13, F-14]
+    note: 셀 스키마 설계와 리워드 도메인
+  ai:
+    features: [F-09, F-16, F-18, F-20, F-21, F-22, F-23]
+  risk:
+    id: R-01
+    text: P0 전체가 한 사람에게 집중되어 있어 해당 인원이 막히면 데모 경로가 정지한다
+    mitigation: F-06 카드 대시보드의 골격을 1주차 안에 완성해 가장 어려운 화면의 위험을 먼저 소진한다
+
+user_flows:
+  - id: UF-01
+    ko: 여행 전 계획
+    steps:
+      - 외부 앱에서 공유 담기로 장소를 바구니에 담는다
+      - 지도 검색으로 좌표를 매핑한다
+      - 바구니 항목을 일정 항목으로 옮기고 카드 대시보드에서 순서를 조정한다
+      - AI가 실현 가능성을 판단하고 조정을 제안한다
+      - 도보와 대중교통 동선을 확정한다
+
+  - id: UF-02
+    ko: 여행 중 기록
+    steps:
+      - 일정 시작일 자동 또는 중앙 버튼으로 여행 모드를 활성화한다
+      - 셀 전환이 감지될 때마다 동선이 채워진다
+      - 목표 셀에서 30분 이상 체류하면 방문으로 판정한다
+      - 셀을 벗어나면 통과로 처리하고 후기 슬라이드를 띄운다
+      - 중앙 버튼으로 사진을 촬영해 스팟과 셀에 저장한다
+      - 꿀 배지 셀에서 체류 조건을 충족하면 쿠폰이 발급된다
+      - 매장 QR을 스캔해 쿠폰 사용을 확정한다
+
+  - id: UF-03
+    ko: 여행 후 공유
+    steps:
+      - 일정 종료 시 여행 모드가 자동 비활성화된다
+      - 보관함에 여행이 쌓이고 지도에서 동선을 확인한다
+      - 사진이 게시물 형태로 정리된다
+      - 공개 범위를 전환한다
+      - 다른 사용자가 좋아요를 남기거나 일정으로 복사한다
+
+demo_scenario:
+  structure: UF-01, UF-02, UF-03 순서를 3막으로 구성한다
+  opening_requirement: 1막 첫 장면은 공유 담기로 시작한다
+  opening_reason: DF-02를 첫 30초에 보여주기 위함
+  closing_requirement: 마지막 막은 여행 후여야 한다
+  closing_reason: stage_priority 1순위와 일치시키기 위함
+  partner_setup: 실제 계약 없이 전북 공공시설을 가정 시나리오로 사용한다
+
+delivery_contracts:
+  p0_p1:
+    source: user
+    member_collection:
+      scope: per_member_device
+      trip_lifecycle_owner: trips
+      state_owner: trip_member_collection_states
+      visit_ownership: member
+      failure_isolation: per_member
+    immutable_writes:
+      visit:
+        key: client_visit_id
+        scope: [trip_id, user_id]
+        payload_fingerprint: required_immutable
+        same_payload_replay: return_original_response
+        changed_payload_replay: conflict_409
+      basket_item:
+        key: client_item_id
+        scope: [trip_id, user_id]
+        payload_fingerprint: required_immutable
+        same_payload_replay: return_original_response
+        changed_payload_replay: conflict_409
+    late_visit:
+      grace_parameter: late_visit_grace_hours
+      accepted_if: observed_interval_end_lte_trip_ended_at
+      committed_replay_after_end: acknowledged
+    public_trip_feed:
+      eligibility: [visibility_public, mode_ended, ended_at_present]
+      trail_source: visits
+      trail_grouping: user_id
+      trail_ordering: [entered_at, visit_id]
+      like_target: trip
+      copy:
+        destination: caller_selected_existing_trip_and_day
+        source: ordered_itinerary_items
+        key: idempotency_key
+        scope: [user_id, idempotency_key]
+        same_payload_replay: return_original_response
+        changed_payload_replay: conflict_409
+    share_import:
+      raw_storage: android_local_only
+      cloud_sync: confirmed_or_manual_place_cards_only
+      candidate_cardinality: zero_to_many
+      candidate_origin_states: [extracted, corrected, manual]
+      candidate_decision_states: [pending, confirmed, rejected]
+      cleanup: after_all_accepted_writes_acknowledged
+    catalog:
+      phase: P0_P1
+      current_cleaned_tourism_catalog: preserved
+      preserved_tables: [places, place_details, catalog_sources, license_snapshots, place_source_records, place_source_images, place_aliases, catalog_import_runs, catalog_import_provenance]
+      search: local_first_with_google_places_fallback
+      nearby_place_types: [tourist_attraction, museum, park, art_gallery, national_park, state_park, historical_landmark, zoo, aquarium, amusement_park]
+      nearby_excluded_types: [cafe, restaurant, lodging, shopping_mall, store]
+      nearby_events_same_section: true
+      nearby_image_enrichment: catalog_refresh_only
+      storage_redesign: deferred_after_P0_P1
+      google_fallback_bulk_canonical_persistence: forbidden
+      forward_migrations:
+        feature_required: named_gates_only
+        v17_preference_traits_constraint: forward_fix_at_todo_4
+        v10_restore_safety: forward_fix_at_todo_4
+        applied_v1_v17_edits: forbidden
+    execution:
+      backend_process: local
+      runtime_profiles: "prod,gcs-write"
+      database: Cloud SQL stog_canonical
+      object_storage: GCS
+      protected_legacy_profile: cloud
+      protected_legacy_database: Cloud SQL stog_0
+      cloud_run_traffic: deferred
+    canonical_cleaning:
+      owner: agent
+      target: localhost:5432/stog_canonical_dev
+      status: complete
+      exclusive_plan: .omo/plans/stog-canonical-db-cleaning.md
+    device_testing:
+      executor: project_runner
+      agent_execution: allowed
+      agent_device_claims: evidence_required
+
+decisions:
+  - {id: D-01, topic: 셀 해상도, decision: H3 해상도 10 단일 고정, source: user, rationale: 지름 약 130m로 한눈에 보이는 시야 범위에 해당, rejected: [계층형 다중 해상도, 해상도 9]}
+  - {id: D-02, topic: 셀 저장, decision: 셀을 저장하지 않고 좌표에서 계산, source: user, rationale: 전북 전체를 미리 넣으면 대부분 비어 있는 행이 생김, rejected: [전 지역 셀 사전 생성]}
+  - {id: D-03, topic: 빈 격자 표시, decision: 제외, source: user, rationale: 구현 비용이 크고 커버리지 개념은 STOG의 방향이 아님, rejected: [전 화면 격자 렌더링]}
+  - {id: D-04, topic: 셀 전환 판정, decision: 같은 셀 연속 2회 감지 시 전환, source: user, rationale: GPS 오차로 인한 경계 진동 방지}
+  - {id: D-05, topic: 개발 플랫폼, decision: 네이티브 앱 단독, source: user, rationale: 4주 일정에서 웹 병행은 리스크, rejected: [앱과 웹 동시 개발]}
+  - {id: D-06, topic: 혼잡 예측, decision: 제거, source: user, rationale: 확보 가능한 데이터가 부정확, rejected: [CCTV 유동인구, 실시간 검색량]}
+  - {id: D-07, topic: 불타는 셀 판정, decision: 좋아요와 방문 수만 사용, source: user, rationale: 유동인구 데이터 신뢰도 부족}
+  - {id: D-08, topic: 이동수단, decision: 도보와 대중교통만 지원, source: user, rationale: 타깃 사용자 흐름과 일치, rejected: [자차 길찾기, 카카오 자동차 경로]}
+  - {id: D-09, topic: 외부 평점, decision: 사용하지 않음, source: user, rationale: 자체 행동 지표로 대체, rejected: [카카오 평점, 네이버 평점]}
+  - {id: D-10, topic: 여행 요약, decision: 어디를 여행했는지 수준의 요약만 유지, source: user, rationale: 상세 요약은 개인정보 경계에 접근, rejected: [여행 후 이야기 생성]}
+  - {id: D-11, topic: 쿠폰 발급 조건, decision: 체류 조건 충족 시 하루 1회, 제휴처별 일일 수량 한도, source: user, rationale: 규칙이 단순하고 연타와 계정당 상한 문제를 함께 해결, rejected: [사진 촬영 시 포인트 지급, 셀당 1일 1회]}
+  - {id: D-12, topic: 쿠폰 사용 인증, decision: 매장 QR 스캔, source: user, rationale: 사진 인증은 구현이 복잡, rejected: [사진 인증, 점주 코드 입력]}
+  - {id: D-13, topic: 제휴처 정산 기준, decision: 발급이 아닌 사용 확정 시점, source: user, rationale: 조작이 발생해도 제휴처에 비용이 전가되지 않음}
+  - {id: D-14, topic: 그룹 권한, decision: 그룹장만 초대 링크를 만들고 참여자를 삭제하며 모든 참여자는 일정 바구니 추가와 여행 일정 수정 및 변경 이력 조회를 할 수 있음, source: user, rationale: 참여자 관리 권한과 여행 내부 활동 권한을 분리한다}
+  - {id: D-15, topic: 그룹 기록 삭제, decision: 삭제 불가, 나가기만 가능, 마지막 참여자 이탈 시 자동 삭제, source: user, rationale: 개인 사진은 보관함에 남으므로 기록이 사라져도 개인의 기억은 유지됨}
+  - {id: D-16, topic: 동선 보간, decision: 평균 속도 시속 6km 기준으로 실선과 점선을 구분하고 점선 구간은 방문과 쿠폰에서 제외, source: user, rationale: 전북에 지하철이 없어 터널 대응 로직이 불필요}
+  - {id: D-17, topic: 위치 수집, decision: 50m 이동 필터 기반 콜백, source: user, rationale: 시간 주기 로직 없이 정지 시 자동으로 수집이 멈춤}
+  - {id: D-18, topic: 좌표 저장, decision: cell_id와 별개로 원본 좌표를 항상 저장, source: user, rationale: 스팟 노출, 지도 핀, 군집 밀도, 속도 계산에 필요}
+  - {id: D-19, topic: 부가 정보 범위, decision: 소규모 모임과 공공 프로그램 정보 제외, source: user}
+  - {id: D-20, topic: 초기 성향 질문, decision: 점수를 직접 묻지 않고 여행 상황 선택형 질문으로 Preference 6축과 핵심 Travel Style 축을 대략적으로 만든다. 고정된 문항 비율이나 traveler_type 판정은 사용하지 않는다, source: user, rationale: 사용자가 실제 선택하는 상황이 점수 질문보다 자연스럽고 3계층을 분리할 수 있음, rejected: [선택형·공감도 고정 비율, 단일 유형 판정]}
+
+  - {id: D-21, topic: 무장애 정보 표시, decision: 장소 카드 속성으로 표시하고 셀 배지로는 넣지 않음, source: user, rationale: 배지가 4종이 되면 최대 2개 규칙이 빡빡해짐, rejected: [셀 배지 추가]}
+  - {id: D-22, topic: 그룹 사진 구분, decision: 사진에 촬영자를 남기고 보관함에 내 사진만 보기 필터를 둠, source: user}
+  - {id: D-23, topic: 여행 모드 상태, decision: active와 dormant와 ended 3단계, source: user, rationale: 1시간 무전환 시 종료하면 카페나 전시 관람 중 여행이 끊겨 하루가 두 개로 쪼개짐, rejected: [1시간 무전환 시 즉시 종료]}
+  - {id: D-24, topic: 배터리 보호, decision: 15퍼센트 이하에서 위치 전송을 멈추고 알림, source: user}
+  - {id: D-25, topic: 쿠폰 소진 표시, decision: 배지를 회색으로 바꾸고 탭하면 재발급 안내, source: user, rationale: 배지를 제거하면 제휴처 노출이 사라짐}
+  - {id: D-26, topic: 공유 담기 처리 시점, decision: 담기 단계는 og 태그만 파싱하고 좌표 매핑은 일정 배치 시점으로 미룸, source: user, rationale: 담을 때마다 검색하면 파이프라인이 무거워짐}
+  - {id: D-27, topic: 이미지 전용 게시물, decision: 자동 인식하지 않고 사용자에게 장소 이름을 입력받음, source: user, rationale: OCR은 정확도가 낮고 저장하는 사용자는 이미 상호명을 알고 있음, rejected: [OCR 파이프라인]}
+  - {id: D-28, topic: 개발 주의점 문서, decision: 개발 규칙과 분리해 별도 파일로 작성, source: user}
+
+  - {id: D-29, topic: 활동 카테고리 단위, decision: 여행 단위 속성으로 둠, source: user, rationale: 산책이나 런닝 같은 일상 기록도 그 자체가 하나의 여행 세션이므로 구간 분할이 불필요, rejected: [구간 단위 segments 테이블]}
+  - {id: D-30, topic: 프로필 갱신 방식, decision: Preference와 Travel Style은 방문·선택·거절·체류·만족도와 대화에서 만든 profile_evidence를 backend가 검증해 자동 보정하고, Trip Context는 장기 프로필에 반영하지 않는다, source: user, rejected: [Trip Context를 장기 성향으로 누적, 매번 전체 설문 재실시]}
+  - {id: D-31, topic: 프로필 근거, decision: 행동과 대화의 해석 결과를 Preference Evidence와 Style Evidence로 분리해 저장하고, 고정된 최근 이벤트 개수나 점수 비율은 실사용 근거가 생기기 전까지 정하지 않는다, source: user, rationale: 축마다 근거와 갱신 대상을 분리해야 임시 상황이 장기 성향을 오염시키지 않음}
+  - {id: D-32, topic: 공유 방향 용어, decision: 외부 앱에서 STOG로 들어오는 동작은 공유 담기 share_import, STOG에서 외부 앱으로 나가는 동작은 내보내기 share_export로 구분, source: user, rationale: 외부 공유라는 표현은 두 방향으로 읽혀 서로 다른 기능을 만들 위험이 있음, rejected: [외부 공유]}
+  - {id: D-33, topic: 소셜 로그인 계정 분리, decision: 서로 다른 소셜 제공자로 로그인하면 별도 users를 생성하는 것을 허용, source: user, rationale: 초기 단계에서는 계정 연결과 자동 병합을 구현하지 않고 제공자별 로그인을 독립적으로 유지}
+  - {id: D-34, topic: 지도 provider, decision: Android 지도 표시는 Google Maps SDK를 사용하고 Kakao 로그인과 공유 담기 인식은 유지, source: user, rationale: 지도 provider와 소셜·공유 provider의 책임을 분리}
+  - {id: D-35, topic: 장소와 동선 provider, decision: 신규 연동은 Places API (New)와 Routes API를 사용하고 Kakao Local은 기본 경로에서 제거, source: user, rationale: 새 기능은 최신 Google API 계약과 FieldMask를 기준으로 통합, rejected: [Places API Legacy, Kakao Local 기본 검색]}
+  - {id: D-36, topic: 지도 계획 시트와 하단 shell, decision: Android 홈은 Google 지도를 중심으로 유지하고 persistent draggable bottom sheet는 collapsed·half expanded·expanded 세 상태만 지원하며 하단은 홈·내 여행·STOBEE·발견·사용자의 동일 너비 5개 항목으로 구성한다. 중앙 STOBEE도 같은 navigation item layout과 touch target을 사용한다, source: user, rationale: 지도 맥락을 유지하면서도 중앙 action의 오버레이와 빈 slot을 제거해 탐색 구조를 단순하게 만든다, rejected: [두 상태 시트, 네 상태 시트, 중앙 오버레이 action, spacer slot]}
+  - {id: D-37, topic: 기존 여행 선택, decision: 지도 계획 시트는 인증된 사용자의 owner-scoped GET /trips/me 목록에서 여행을 선택할 수 있고 새 여행 생성도 유지하며 선택한 trip_id로 바구니에 담기, source: user, rationale: 기존 여행에 장소를 추가하는 A-11 흐름을 제공하고 잘못된 여행 저장을 막기 위해 선택 변경 시 검색 후보 상태를 초기화, rejected: [새 여행만 허용]}
+  - {id: D-38, topic: Cloud 사용자 매핑, decision: 기존 Cloud UUID를 source_user_mappings.source_user_uuid로 보존하고 canonical users.id를 참조하는 로컬 매핑 기록을 사용하며 실제 Cloud import는 별도 승인을 받은 뒤 수행, source: user, rationale: 기존 여행·사진 소유권을 보존할 수 있고 canonical 인증 식별자와 Cloud source 식별자를 섞지 않음, rejected: [provider 계정만으로 매칭]}
+  - {id: D-39, topic: 장소 검색과 여행 관리의 화면 소유권, decision: 지도 상단 검색창은 로그인 여부와 관계없이 장소 검색 전용으로 유지하고 탭하면 지도 바텀 시트를 이동하거나 검색 콘텐츠로 바꾸지 않고 별도 전체 화면 검색으로 전환하며 결과를 STOG 장소 카드로 즉시 보여주고 지도 복귀 시 marker에도 반영하며 담기 action에서만 로그인을 요구한 뒤 기존 여행 또는 새 여행을 선택해 해당 여행의 일정 바구니에 넣고 내 여행은 장소 검색 없이 여행·일정 바구니·일정 항목을 관리한다, source: user, rationale: 검색 화면과 지도 계획 시트의 소유권을 완전히 분리하고 탐색은 자유롭게 제공하되 영속 데이터 변경 시점에만 인증과 여행 선택을 요구한다}
+  - {id: D-40, topic: 홈과 내 여행의 역할, decision: 홈은 사용자의 현재 여행 단계에 필요한 실행만 보여주고 내 여행은 여행 목록과 계획·관리를 담당한다. 홈에서 일정 전체를 편집하지 않는다, source: user, rationale: 지도 탐색·일정 편집·여행 실행·여행 후 기록을 한 화면에 섞지 않는다}
+  - {id: D-41, topic: 여행 단계별 화면, decision: 여행 전은 일정 바구니에서 날짜별 일정으로 배치하고 순서를 조정하는 편집 화면, 여행 중은 다음 장소와 남은 일정을 실행하는 화면, 여행 후는 동선·셀·사진을 보는 기록 화면으로 분리한다, source: user, rationale: 같은 여행이라도 단계별 핵심 행동이 다르다}
+  - {id: D-42, topic: 여행 중 완료 일정, decision: 방문한 일정 항목은 삭제하지 않고 기본 접힌 완료 영역으로 이동하며 사용자가 필요할 때 다시 펼쳐본다, source: user, rationale: 여행 중 이미 방문한 장소를 다시 확인할 수 있어야 한다, rejected: [완료 즉시 삭제, 완료 항목 항상 전체 노출]}
+  - {id: D-43, topic: 일정 바구니에서 일정으로 이동, decision: MVP는 일정 바구니 카드 선택 후 선택한 날짜에 추가하는 방식을 사용하고 drag and drop은 제외한다, source: user, rationale: 명확한 선택·확정 흐름이 이동 gesture보다 구현과 사용이 안정적, rejected: [MVP drag and drop, 가운데 plus와 remove 버튼만 제공]}
+  - {id: D-44, topic: STOBEE 여행 맥락과 변경 반영, decision: STOBEE 진입은 선택한 trip_id를 맥락으로 유지하고 일정 변경은 typed proposal을 먼저 표시한 뒤 별도 사용자 확인에서만 적용한다, source: user, rationale: 어느 여행에 대한 요청인지 명확히 하고 대화만으로 일정이 바뀌는 사고를 막는다, rejected: [대화 즉시 일정 변경, trip_id 없는 전역 대화]}
+  - {id: D-45, topic: 발견 화면 소유권, decision: 하단 발견 항목은 지도 bottom sheet 내용을 교체하지 않고 공통 하단 navigation을 유지한 전용 전체 화면 SNS 피드로 전환하며 게시물은 작성자·사진·좋아요·캡션 순서로 표시하고 새로고침 action은 하나만 둔다, source: user, rationale: 사진 중심 피드가 전체 화면 스크롤과 폭을 사용하도록 하고 지도 계획 sheet와 발견의 책임을 분리하며 중복 상태 문구와 복구 action을 제거한다, rejected: [지도 bottom sheet 안의 발견 피드, 카드형 관리자 metadata, 새로고침과 다시 시도 중복]}
+  - {id: D-46, topic: 밝은 표면 색상, decision: Android 앱의 canvas와 surface는 아이보리·크림 계열을 사용하지 않고 순백색 하나로 통일하며 STOG 노란색은 선택 상태와 주요 action에만 유지한다, source: user, rationale: 화면별로 다른 밝은 배경색이 섞이는 문제를 없애고 시각 계층을 색상보다 간격과 border로 구분한다, rejected: [아이보리 canvas, 크림 surface, 화면별 밝은 중립색]}
+  - {id: D-47, topic: 장소 원본과 권리 경계, decision: 초기 canonical catalog은 권리와 공개 기준이 확인된 TOUR_API 및 AREA_RESTAURANT만 적재하고 KAKAO_LOCAL은 권리·재사용 필드·공개 기준을 별도 확인하기 전까지 제외한다. provider 대표 사진 URL은 license_snapshot 없이 공개하거나 영구 보관하지 않는다, source: user, rationale: 검색량보다 재사용 가능한 데이터의 권리와 기준을 먼저 고정한다, rejected: [KAKAO_LOCAL 무검토 적재, provider URL 무조건 공개]}
+  - {id: D-48, topic: 공개 셀 적격성, decision: public_cell_eligible은 TOUR_CULTURE·TOUR_HISTORY·TOUR_NATURE·TOUR_EXPERIENCE에만 기본 true를 주고 catalog_status·active place_source_record·applicable license_snapshot을 모두 통과한 장소만 공개 Cell landmark로 집계한다. 일반 음식점과 숙소는 public Cell에서 제외하고 검색·상세·사용자 활동으로만 노출한다, source: user, rationale: 빈 Cell을 늘리지 않고 문화·역사·지역 대표성 중심의 지도 의미를 유지한다, rejected: [모든 public catalog 장소를 Cell에 표시, 음식점·숙소의 기본 Cell 표시]}
+  - {id: D-49, topic: 장소 상세 외부 평점과 운영 정보, decision: 장소 상세 UI에 한해 Google Places request-time 평점·리뷰 수·영업 상태를 표시하며 검색 순위·추천·Cell 판정에는 사용하지 않고 결측값은 숨긴다, source: user, rationale: 지도 탐색 중 선택한 장소의 현재 상태를 실제 provider 데이터로 확인하되 STOG 판정 로직과 분리한다, supersedes: D-09의 UI 표시 금지 범위, rejected: [외부 평점 기반 검색 순위, 외부 평점 기반 추천, 결측값 생성]}
+  - {id: D-49, topic: 인기와 방문자 반응, decision: 외부 평점이나 provider 인기 수치를 초기 catalog 판정에 사용하지 않고, 인기·방문자 반응은 이후 own visit·like·public photo 데이터가 충분해진 뒤 보강한다, source: user, rationale: 초기 원본의 인기 지표는 권리와 정의가 불명확하고 자체 행동 지표와 섞이면 Cell 판정이 흔들린다, rejected: [외부 평점 즉시 반영, provider 인기 수치로 Cell 판정]}
+  - {id: D-50, topic: 숙소와 관광지 일정 연결, decision: 숙소와 관광지를 연결한 순서·체류·이동 가능성은 place catalog의 공개 Cell 판정이 아니라 AI 일정과 알고리즘의 실현 가능성 검증에서 처리한다, source: user, rationale: 장소의 검색·공개 책임과 여행 일정 최적화 책임을 분리한다}
+  - {id: D-51, topic: 검색 출처 확장, decision: local canonical catalog에는 한국관광공사 문화·역사·자연·체험·박물관 계열과 지자체 공식 시설·문화재 공개 데이터를 권리 확인 후 추가하고, 일반 장소 부족은 Google Places live fallback으로 보완한다. KAKAO_LOCAL은 D-47 검토 후에만 재논의한다, source: user, rationale: 관광 적격성과 일반 장소 검색 recall을 서로 다른 경로로 확장한다}
+  - {id: D-52, topic: 장소 상세 보강, decision: 숙소·음식점은 source 또는 사용자 확인 근거가 있는 place_alias·오탈자 검색어·opening_hours·estimated_cost·parking_info·reservation_info만 보강하고 source_updated_at과 provenance를 유지하며 확인되지 않은 값은 null로 둔다, source: user, rationale: 검색 recall과 카드 유용성을 높이되 AI나 import가 운영 정보와 가격을 발명하지 않게 한다}
+  - {id: D-53, topic: 분위기와 대표 사진, decision: atmosphere는 승인된 trait 매핑 또는 출처·사용자 확인 태그로만 저장하고 place_source_image는 재사용 권리가 확인된 출처 사진만 연결한다. 현재 Cloud representative_image_url은 후보 정보로만 보존하며 권리 확인 전 canonical 공개 사진으로 import하지 않는다, source: user, rationale: 장소 카드의 분위기와 대표 사진은 필요하지만 이미지 권리와 의미 매핑을 통과해야 공개할 수 있다, rejected: [사진만 보고 분위기 자동 확정, 권리 미확인 대표 URL 공개]}
+  - {id: D-54, topic: 사용자 성향 구조, decision: 사용자는 Preference·Travel Style·Trip Context의 3계층으로 관리한다. Preference는 nature·culture·food·shopping·experience·relaxation, Travel Style은 localness·crowd_tolerance·pace·spontaneity·activity_intensity·novelty_seeking·travel_effort_tolerance를 각각 0부터 1까지 저장하며 Trip Context는 current_energy·available_time·weather·crowd_level·companion_type·transport_available·mobility_constraint·trip_mode를 이번 여행에만 적용한다, source: user, rationale: 무엇을 좋아하는지와 어떻게 여행하는지와 지금 가능한 조건을 섞지 않기 위해서, rejected: [forest·time·local·food·festival·archive 단일 6축, 하나의 traveler_type]}
+  - {id: D-55, topic: 임시 상황 처리, decision: 사용자가 피곤하거나 시간이 부족하다고 말하면 Trip Context만 낮추고 Preference와 Travel Style은 변경하지 않는다. Qwen은 Preference Evidence·Style Evidence·Trip Context를 분리해 해석하고 backend가 허용된 값만 반영한다, source: user, rationale: 오늘의 상태를 장기 취향으로 오인하면 이후 추천이 계속 왜곡됨}
+  - {id: D-56, topic: 성향 구현 순서, decision: 초기 설문 UI는 별도 제작하고 backend는 Preference·Travel Style 저장과 Trip Context 저장·조회 API를 먼저 제공한다. 점수 산출과 갱신 로직의 판정 검증은 실제 설문·행동·대화 데이터가 연결된 뒤 수행한다, source: user, rationale: UI와 검증 가능한 근거가 준비되기 전에는 backend 계약과 저장 경계를 먼저 고정한다}
+  - {id: D-57, topic: 추천과 AI 일정 연결, decision: Preference·Travel Style·Trip Context를 추천 알고리즘과 AI 일정 모델에 연결하는 작업은 별도 후속 범위로 둔다, source: user, rationale: 현재는 성향 저장과 일정 편집 기반을 먼저 완성하고 추천 모델을 임의로 만들지 않는다}
+  - {id: D-58, topic: 여행 일정 선택, decision: 여행 목록에서 작업할 여행을 먼저 선택하고 여행의 시작일·종료일 범위 안에서 날짜별 일정 항목을 배치한다, source: user, rationale: 여러 여행과 여러 날짜의 일정을 섞지 않고 일정 편집 대상을 명확히 하기 위해서}
+  - {id: D-59, topic: 장소 기능 분류와 성향 특성, decision: places.category는 ATTRACTION·FOOD·CAFE·ACCOMMODATION·SHOPPING·TRANSPORT·SERVICE·OTHER의 기능 분류만 저장하고 place_details.traits는 출처 근거가 있는 nature·culture·food·shopping·experience·relaxation boolean만 복수로 저장한다. Travel Style과 Trip Context는 장소 category나 traits에 넣지 않는다, source: user, rationale: 장소의 기능과 사용자 Preference 및 현재 여행 조건을 섞지 않고 검색·추천·일정 책임을 분리, rejected: [Preference 축을 단일 장소 category로 사용, 근거 없는 장소 성향 점수 생성]}
+  - {id: D-60, topic: 장소 cell_id 범위, decision: cell_id는 공식 지역 특색 관광 근거가 있는 공개 Cell 장소와 방문·사진·제휴 등 Cell 기능 참여 데이터에만 저장한다. 일반 검색·일정 장소는 lat·lng를 보존하고 cell_id는 null로 두며 검색 결과·일정·사용자 바구니 맥락에서만 지도 marker로 표시한다, source: user, rationale: 기본 지도는 지역 특색 Cell에 집중하고 일반 장소의 검색·동선 계산에는 원본 좌표만으로 충분, rejected: [모든 좌표 장소에 cell_id 저장, 일반 장소 기본 지도 노출]}
+  - {id: D-61, topic: canonical 장소 정제, decision: agent가 local stog_canonical_dev의 Flyway V17 schema에서 migration이나 application write 없이 승인된 정제 DML만 수행한다. normalized name·address와 서로 다른 provider 근거가 일치하고 좌표 거리가 place_merge_distance_m 이하인 고신뢰 중복만 가장 오래된 places.id로 병합하며 애매한 후보는 격리한다. legacy manifest 장소는 허용된 name·address·description·opening_hours·visit_minutes만 검색 공개하고 공식 세부 근거 복원 전 public_cell_eligible을 false로 둔다, source: user, rationale: legacy stog와 Cloud stog_0을 건드리지 않고 현재 canonical 검색 자산을 보존하면서 오병합과 무근거 Cell 공개를 차단, rejected: [이름만으로 병합, legacy 분류로 Cell 유지, 사용자 전담 정제]}
+  - {id: D-62, topic: 장소 데이터 확장 transaction, decision: 현재 1566건 일회성 정제는 backup과 dry-run 검증 뒤 단일 transaction으로 처리하고 향후 공식 데이터 확장은 source snapshot별 bounded batch와 catalog_import_runs·catalog_import_provenance를 사용해 idempotent하게 중단·재개한다. 개별 entity 병합과 FK 이동은 한 transaction으로 유지한다, source: user, rationale: 현재 정제는 전체 rollback 가능하게 하고 향후 대량 반복 수집은 실패 batch만 재실행}
+  - {id: D-63, topic: 참여자별 위치 수집, decision: 공유 여행 상태와 각 참여자(member)의 위치 수집 상태를 분리하고 모든 active 참여자의 기기가 자동 수집한다. 참여자별 권한·배터리·로그아웃·동기화 실패는 다른 참여자의 수집을 중단하지 않으며 방문(visit)은 참여자 소유로 각각 보존한다, source: user, rationale: 하나의 공유 여행 안에서도 각 기기의 실행 조건과 기록 소유권은 독립적이어야 한다}
+  - {id: D-64, topic: 방문과 일정 바구니 쓰기 멱등성, decision: 방문은 client_visit_id, 일정 바구니 항목은 client_item_id와 불변 payload_fingerprint를 참여자·여행 범위에서 사용한다. 같은 key와 같은 payload 재전송은 최초 응답을 반환하고 같은 key의 다른 payload는 409로 거부한다, source: user, rationale: Android 재전송과 동시 요청이 중복 또는 변경된 쓰기를 만들지 않게 한다}
+  - {id: D-65, topic: 종료 후 방문 수신, decision: 여행 종료 전 관측이 끝난 방문은 ended_at 뒤 late_visit_grace_hours 이내에 도착하면 수신하고 그 밖의 종료 후 신규 방문은 거부한다. 종료 전에 이미 반영된 멱등 재전송은 계속 확인 응답한다, source: user, rationale: 오프라인 기록을 보존하면서 종료된 여행의 새 기록 생성을 제한한다}
+  - {id: D-66, topic: 공유 담기 후보와 보관 경계, decision: 하나의 공유 담기(share_import)는 0개 이상 장소 후보를 만들고 추출·수정·사용자 입력 출처와 대기·확인·거절 결정을 독립적으로 보존한다. 원본과 검토 상태는 Android 로컬에만 두고 확인 또는 사용자 입력 장소 카드만 동기화하며 모든 승인 쓰기가 확인된 뒤 원본을 삭제한다, source: user, rationale: 여러 장소와 불명확한 입력을 자동 확정하지 않고 원본의 Cloud 보관을 막는다}
+  - {id: D-67, topic: P0 P1 Cloud 실행 경계, decision: backend는 로컬에서 prod,gcs-write profile로 실행해 Cloud SQL stog_canonical과 GCS를 사용한다. cloud profile과 Cloud SQL stog_0은 보호된 읽기 전용 legacy source이며 Cloud Run traffic은 후속 승인까지 변경하지 않는다, source: user, rationale: 실제 Cloud 저장 경로를 검증하면서 legacy source와 배포 traffic을 보호한다}
+  - {id: D-68, topic: 정제와 기기 검증 소유권, decision: local stog_canonical_dev 정제는 전용 canonical 정제 계획에서 agent가 완료하며 다른 작업은 정제를 수행하지 않는다. 실제 기기와 emulator 검증은 owner만 실행하고 agent는 host-side 검증과 owner 실행 목록만 제공한다, source: user, rationale: 데이터 변경과 기기 관찰의 실행 책임을 명확히 분리한다}
+  - {id: D-69, topic: P0 P1 카탈로그 유지, decision: 현재 정제된 관광 카탈로그와 places·place_details·출처·license 구조 및 local-first 검색과 Google Places fallback을 P0 P1 동안 유지하고 더 넓은 장소 카탈로그 저장 재설계는 이후로 미룬다. Google fallback 결과를 새 canonical 카탈로그로 일괄 저장하지 않으며 Todo 4의 V17 Preference traits 제약과 V10 restore safety 보완 및 기능 필수 forward migration만 지정 gate에서 허용한다, source: user, rationale: 검증된 관광 검색 자산을 보존하고 전달 범위 안의 필수 schema 보완만 수행한다}
+  - {id: D-70, topic: F-12 공개 동선 계약, decision: 별도 GET /public-trips는 visibility가 public이고 mode가 ended이며 ended_at이 있는 여행만 노출하고 방문을 user_id별로 묶어 entered_at과 visit_id 순서의 동선으로 반환한다. 여행 좋아요는 likes의 trip target을 사용하며 공개 여행 일정 복사는 호출자가 선택한 기존 destination_trip_id와 destination_day에 원본 일정 항목 순서대로 추가하고 user_id와 idempotency_key 범위에서 같은 요청은 최초 응답을 반환하며 다른 요청 재사용은 409로 거부한다, source: user, rationale: A-09를 기존 visit·likes·basket_items·itinerary_items 구조를 재사용하는 가장 작고 되돌리기 쉬운 P0 P1 계약으로 확정한다}
+  - {id: D-71, topic: 발견 사진 반응과 저장, decision: 발견 사진 게시물은 좋아요와 댓글만 반응으로 유지하고 보내기 action은 제공하지 않으며 저장 아이콘으로 saved_feed를 만든다. 사용자는 사용자 화면에서 저장 피드를 확인한다. 서버 댓글·저장 계약 전 Android 미리보기는 생성 사진과 결정적 fixture 게시물을 기기 로컬 상태로 보여주고 서버 성공으로 표시하지 않는다, source: user, rationale: 발견을 사진 중심 SNS로 단순화하면서 다시 볼 기록을 사용자 화면에 남긴다}
+
+  - {id: D-72, topic: STOG Set Log Camera entry, decision: 기존 5개 하단 navigation item은 유지하고 홈 콘텐츠의 inset 영역 안에만 우측 하단 camera action을 추가하며 기존 AppDestination.CAPTURE로 이동한다, source: user, rationale: D-36의 shell geometry를 깨지 않으면서 홈에서 한 번에 여행 기록 촬영을 시작한다, rejected: [여섯 번째 navigation item, 중앙 overlay action, generic scaffold FAB slot]}
+  - {id: D-73, topic: Set Log delivery durability, decision: Record 확정 시 account·trip·upload identity와 불변 snapshot을 내구 저장한 뒤 네트워크를 시작하고 다중 pending·재시작·백그라운드 재시도를 지원하는 Room outbox와 worker를 사용한다, source: user, rationale: 촬영 결과를 단순 화면 상태가 아닌 복구 가능한 여행 기록으로 보존한다, rejected: [전역 단일 pending slot, 화면 coroutine만 의존]}
+  - {id: D-74, topic: Set Log provenance failures, decision: 카메라는 정책에 맞는 위치 fix 전 Record를 막고 draft를 보존하며 갤러리는 EXIF 좌표가 없으면 archive-only로 저장하고 현재 위치로 덮어쓰지 않는다, source: user, rationale: 장소와 셀을 추측해 사진을 잘못된 공간에 귀속시키지 않는다, rejected: [임의 현재 위치 주입, provider 후보 자동 확정]}
+  - {id: D-75, topic: Set Log place identity, decision: 좌표에서 결정된 nullable canonical places.id와 immutable name snapshot을 사용하고 tie·no-match는 null로 남기며 기준값은 tuning_parameters에서 관리한다, source: user, rationale: provider nearby 후보 1위를 canonical 장소로 오인하지 않는다, rejected: [provider external_id만 저장, 후보 1위 무조건 선택]}
+  - {id: D-76, topic: Set Log visibility, decision: 확인 화면은 private/public intent만 받으며 public consent와 기존 moderation/grant eligibility를 함께 기록하고 실제 노출 전에는 moderation_pending 또는 trip_not_public 상태를 표시한다, source: user, rationale: 저장 의도와 공개 노출을 혼동하지 않는다, rejected: [Record 즉시 public 표시, confirmation에서 group 노출 선택]}
+  - {id: D-77, topic: Set Log readback, decision: 저장된 photo-backed 기록은 기존 Cell photo list, 종료 여행 archive/map, photo detail에서 place·note·visibility와 함께 조회하고 별도 feed·WebSocket·logs table은 만들지 않는다, source: user, rationale: 기존 read projection을 확장해 한 기록의 조회 경로를 유지한다, rejected: [별도 Log aggregate, 신규 synchronization surface]}
+  - {id: D-78, topic: camera location reuse, decision: reuse the latest valid location fix from the active trip recorder when it satisfies the camera age and accuracy tuning; otherwise request the current location, source: user}
+  - {id: D-79, topic: user Cell count, decision: count distinct H3 resolution 10 cell IDs across the user's non-interpolated visited visits and coordinate-bearing non-blocked photos across all trips; a previously visited Cell never increases the count, source: user}
+  - {id: D-80, topic: profile image, decision: use the STOG icon until the user selects a JPEG profile image through the profile picker and uploads it with direct signed storage URLs, source: user}
+  - {id: D-81, topic: profile photo grid, decision: show the user's complete photo archive in a 3-column grid and show visibility state on owned photos, source: user}
+  - {id: D-82, topic: saved discovery photos, decision: persist save and unsave through the server and show saved public discovery photos in a 3-column profile grid, source: user}
+  - {id: D-83, topic: profile surface focus, decision: keep D-82 server save and unsave plus the Discover bookmark action, but remove the saved discovery feed from the user profile; the profile surface contains the user's own archive and current account actions only, source: user, supersedes: [D-82]}
+  - {id: D-84, topic: discovery publication timing, decision: a public-consent photo enters the public discovery pipeline at finalization without a one-day delay; existing trip visibility, public grant, and moderation eligibility gates remain in force, source: user, supersedes: [D-76]}
+  - {id: D-85, topic: itinerary recommendation MVP, decision: F-09 여행 가이드 AI MVP는 기존 private QWEN Cloud Run을 자연어 의도 처리에 재사용하고 Spring이 canonical places·place_details·itinerary 데이터를 조회해 Preference 6축 구조화 유사도, 일정 시간창, 이동 거리, opening_hours 제약으로 preview proposal을 만든다. 사용자의 명시적 apply 전에는 일정과 DB를 변경하지 않으며 기존 fixed 수동 편집과 version 검사를 보존한다. 임베딩·pgvector·vector database는 이 MVP 범위에 포함하지 않는다, source: user, supersedes: [D-57]}
+  - {id: D-86, topic: public trip photo posts, decision: an uploaded post in a public trip is normalized to public photo visibility and becomes a discovery post immediately at finalization without a separate public-consent step; moderation approval and an active public grant are not required, while blocked photos remain excluded, source: user, supersedes: [D-84]}
+  - {id: D-86, topic: STOBEE 여행 생성과 전북 지역 선택, decision: 여행 생성은 전북 전체 또는 14개 시·군 중 하나를 region_code로 저장하고 STOBEE 일정 생성은 여행 바구니의 장소를 입력으로 사용한다. 기존 고정 일정은 유지하며 바구니는 변경하지 않는다. STOBEE의 장소 추천은 Qwen이 ID를 생성하지 않고 Spring이 canonical/provider 검색 결과에서 최대 5개를 반환한다, source: user}
+  - {id: D-87, topic: 여행 공개 범위, decision: 모든 여행의 visibility를 public으로 고정하고 기존 private·group 여행도 public으로 전환한다. 사진의 private·group visibility는 별도로 유지한다, source: user}
+
+deferred:
+  note: 현 단계에서는 틀만 정의하고 상세는 구현 단계에서 확정한다
+  items:
+    - {id: DF-A, topic: 공유 담기 파싱, owner: lead_fe_be, scope: 출처별 분기와 매핑 실패 폴백의 구체 구현}
+    - {id: DF-B, topic: 성향 자동 갱신, owner: ai, scope: 행동 로그의 축 분류와 반영 계수}
+    - {id: DF-C, topic: 임베딩 기반 장소 검색, owner: ai, scope: embedding 모델, pgvector, 비용, 리전, semantic search 선택}
+    - {id: DF-D, topic: 사진 장소 유사도, owner: ai, scope: image similarity와 사용자 사진 재사용 정책}
+    - {id: DF-E, topic: F-17 행사 페이지와 알림, owner: lead_fe_be, scope: "phase_2 상세 행사 페이지·알림·event Cell 콘텐츠. phase_1은 nearby 읽기 전용 카드와 동기화로 제한"}
+    - {id: DF-F, topic: 여행 FE 백엔드 연결, owner: lead_fe_be, scope: 홈 단계 판정용 여행 요약, 참여자 성향 요약, 날짜별 이동시간, 완료 일정, 여행 후 셀·장소·사진 집계, trip_id 기반 STOBEE 대화와 proposal 적용 API}
+
+tuning_parameters:
+  note: 코드에 상수로 박지 않고 설정값으로 분리한다. 실사용 데이터 확보 후 재조정 대상이다
+  items:
+    - {key: cell_transition_confirm, initial: 2, meaning: 셀 전환으로 인정하기 위한 연속 감지 횟수}
+    - {key: location_distance_filter_m, initial: 50, meaning: 위치 콜백을 받는 최소 이동 거리}
+    - {key: location_initial_zoom, initial: 15.0, meaning: 권한 승인 후 재진입 시 현재 위치에 적용하는 지도 확대 수준}
+    - {key: event_nearby_radius_m, initial: 10000, meaning: 현재 위치 주변 행사 추천 반경}
+    - {key: event_refresh_horizon_days, initial: 90, meaning: 행사 동기화에서 현재부터 조회할 미래 일수}
+    - {key: event_nearby_result_limit, initial: 10, meaning: 행사 주변 추천의 최대 결과 수}
+    - {key: dormant_after_minutes, initial: 60, meaning: 셀 전환 없이 휴면으로 전환되기까지의 시간}
+    - {key: visit_dwell_minutes, initial: 30, meaning: 방문으로 인정하기 위한 체류 시간}
+    - {key: walk_speed_limit_kmh, initial: 6, meaning: 실선 보간을 허용하는 평균 속도 상한}
+    - {key: auth_access_token_minutes, initial: 15, meaning: STOG Access Token 유효 시간}
+    - {key: auth_refresh_token_days, initial: 30, meaning: STOG Refresh Token 유효 기간}
+    - {key: naver_login_ticket_minutes, initial: 5, meaning: 네이버 인증 완료 후 Android가 STOG 토큰으로 교환할 수 있는 1회용 ticket 유효 시간}
+    - {key: catalog_search_result_limit, initial: 20, meaning: 한 번의 local-first 장소 검색에서 반환하는 최대 결과 수}
+    - {key: catalog_search_default_radius_meters, initial: 3000, meaning: 좌표만 제공된 local-first 장소 검색의 Google Places location bias 기본 반경, 기존 API example radius를 configuration으로 승격한다}
+    - {key: catalog_search_fallback_min_results, initial: 3, meaning: Google Places fallback을 호출하지 않고 충족해야 하는 local catalog 결과 수}
+    - {key: catalog_search_fuzzy_threshold, initial: 0.25, meaning: pg_trgm lexical fuzzy 후보를 포함하는 최소 similarity}
+    - {key: home_place_nearby_radius_m, initial: 5000, meaning: 홈에서 현재 위치 주변 장소를 조회하는 반경}
+    - {key: home_place_result_limit, initial: 8, meaning: 홈의 장소 추천 카드 최대 결과 수}
+    - {key: nearby_place_duplicate_distance_m, initial: 50, meaning: 주변 장소 결과에서 정규화된 이름이 같고 좌표가 이 거리 이내인 후보를 하나로 합치는 거리}
+    - {key: place_merge_distance_m, initial: 50, meaning: normalized name·address와 provider 근거가 모두 일치하는 중복 장소의 자동 병합 허용 좌표 거리}
+    - {key: late_visit_grace_hours, initial: 24, meaning: ended_at 전에 관측이 끝난 오프라인 방문을 여행 종료 후 수신할 수 있는 시간}
+    - {key: feed_page_size, initial: 20, meaning: feed cursor 페이지의 기본이자 최대 결과 수}
+    - {key: cell_summary_page_size, initial: 20, meaning: cells summary cursor 페이지의 기본이자 최대 결과 수}
+    - {key: cell_photo_page_size, initial: 20, meaning: Cell photo response의 기본이자 최대 결과 수}
+    - {key: camera_caption_max_code_points, initial: 120, meaning: Set Log 한 줄 기록의 최대 Unicode code point 수이며 줄바꿈은 허용하지 않는다}
+    - {key: camera_thumbnail_max_bytes, initial: 51200, meaning: 촬영 기록 썸네일의 최대 업로드 바이트이며 signed storage 정책과 일치해야 한다}
+    - {key: camera_location_max_age_seconds, initial: 15, meaning: 촬영 시점 위치 fix를 신뢰할 수 있는 최대 경과 시간}
+    - {key: camera_location_max_accuracy_m, initial: 100, meaning: 촬영 시점 위치 fix에 허용하는 최대 수평 오차}
+    - {key: camera_location_timeout_seconds, initial: 8, meaning: 셔터 후 정책에 맞는 foreground 위치 fix를 기다리는 최대 시간}
+    - {key: home_location_max_age_seconds, initial: 60, meaning: 홈 주변 추천에 재사용할 수 있는 위치 fix의 최대 경과 시간}
+    - {key: home_location_max_accuracy_m, initial: 500, meaning: 홈 주변 추천에 허용하는 최대 수평 오차}
+    - {key: home_location_timeout_seconds, initial: 8, meaning: 홈 주변 추천 위치 fix를 기다리는 최대 시간}
+    - {key: camera_place_radius_m, initial: 75, meaning: 촬영 좌표와 canonical 장소 후보를 연결하는 최대 거리}
+    - {key: camera_place_tie_delta_m, initial: 10, meaning: 장소 후보 거리를 비교할 때 tie로 처리하는 거리 차이}
+
+out_of_scope:
+  - 웹 버전
+  - 자차 길찾기
+  - 혼잡도 예측
+  - 실시간 공동 편집
+  - 외부 평점 기반 검색 순위·추천
+  - 마이크로서비스 구성
+  - 학습 기반 추천 모델
+  - 소규모 모임 정보
+  - 이미지 OCR 기반 장소 인식
+
+open_items:
+  - id: A-06
+    question: 여행 가이드 AI를 F-09의 확장으로 포함할지 별도 기능 ID와 우선순위를 부여할지
+  - id: A-07
+    question: 공유 담기에서 출처별 목록 분리와 여러 장소 확인 패널을 P1 범위로 어디까지 확정할지
+  - id: A-08
+    question: 현재 Cloud 장소의 trait 값을 Preference(nature/culture/food/shopping/experience/relaxation)와 어떻게 매핑할지, Travel Style 근거로 사용할 수 있는 데이터인지, 그리고 live schema에 없는 license provenance를 source별 정책으로 보완해 import할지

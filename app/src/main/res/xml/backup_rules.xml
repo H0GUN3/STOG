@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="stog_auth.xml" />
+    <exclude domain="database" path="." />
+    <exclude domain="file" path="share_imports" />
+    <exclude domain="file" path="record" />
+</full-backup-content>

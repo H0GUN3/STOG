@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.STOG.Base" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="android:windowBackground">@color/stog_splash_yellow</item>
+        <item name="android:statusBarColor">@color/stog_canvas</item>
+        <item name="android:navigationBarColor">@color/stog_canvas</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.STOG" parent="Theme.STOG.Base" />
+</resources>

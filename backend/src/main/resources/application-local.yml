@@ -1,0 +1,19 @@
+# After task-2 provisioning, DB_URL identifies the isolated stog_canonical_dev
+# database in the local PostgreSQL cluster on localhost:5432.
+# They must never target the legacy local stog database or Cloud SQL.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  flyway:
+    enabled: false
+
+stog:
+  google:
+    places:
+      base-url: ${GOOGLE_PLACES_BASE_URL:https://places.googleapis.com/v1}
+    routes:
+      base-url: ${GOOGLE_ROUTES_BASE_URL:https://routes.googleapis.com}

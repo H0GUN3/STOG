@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="set_log_caption_max_code_points">120</integer>
+    <integer name="set_log_location_max_age_seconds">15</integer>
+    <integer name="set_log_location_max_accuracy_m">100</integer>
+    <integer name="set_log_location_timeout_seconds">8</integer>
+    <integer name="home_location_max_age_seconds">60</integer>
+    <integer name="home_location_max_accuracy_m">500</integer>
+    <integer name="home_location_timeout_seconds">8</integer>
+    <integer name="set_log_place_radius_m">75</integer>
+    <integer name="set_log_place_tie_delta_m">10</integer>
+    <integer name="set_log_h3_resolution">10</integer>
+</resources>

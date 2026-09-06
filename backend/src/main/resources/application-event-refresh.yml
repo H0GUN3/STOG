@@ -1,0 +1,14 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+stog:
+  events:
+    refresh:
+      url: ${TOUR_API_EVENT_URL:https://apis.data.go.kr/B551011/KorService2/searchFestival2}
+      service-key: ${TOUR_API_SERVICE_KEY:}
+      area-codes: ${TOUR_API_EVENT_AREA_CODES:1,2,3,4,5,6,7,8,31,32,33,34,35,36,37,38,39}
+      horizon-days: ${EVENT_REFRESH_HORIZON_DAYS:90}
+      page-size: ${TOUR_API_EVENT_PAGE_SIZE:100}
+      connect-timeout: ${TOUR_API_EVENT_CONNECT_TIMEOUT:3s}
+      read-timeout: ${TOUR_API_EVENT_READ_TIMEOUT:10s}

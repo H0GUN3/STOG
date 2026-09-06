@@ -1,0 +1,9 @@
+{
+  "name": "stog-final-presentation",
+  "private": true,
+  "version": "1.0.0",
+  "description": "STOG final presentation deck generator",
+  "dependencies": {
+    "pptxgenjs": "^3.12.0"
+  }
+}

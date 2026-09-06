@@ -1,0 +1,21 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+  datasource:
+    url: ${CLOUD_DB_URL}
+    username: ${CLOUD_DB_USERNAME}
+    password: ${CLOUD_DB_PASSWORD}
+    hikari:
+      read-only: true
+
+stog:
+  google:
+    places:
+      base-url: ${GOOGLE_PLACES_BASE_URL}
+    routes:
+      base-url: ${GOOGLE_ROUTES_BASE_URL}

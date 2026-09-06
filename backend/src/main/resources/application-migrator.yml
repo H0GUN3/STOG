@@ -1,0 +1,24 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  main:
+    web-application-type: none
+  jpa:
+    hibernate:
+      ddl-auto: none
+  datasource:
+    url: ${MIGRATOR_DB_URL}
+    username: ${MIGRATOR_DB_USERNAME}
+    password: ${MIGRATOR_DB_PASSWORD}
+  flyway:
+    enabled: true
+    url: ${MIGRATOR_DB_URL}
+    user: ${MIGRATOR_DB_USERNAME}
+    password: ${MIGRATOR_DB_PASSWORD}
+
+stog:
+  google:
+    places:
+      base-url: ${GOOGLE_PLACES_BASE_URL:https://places.googleapis.com/v1}
+    routes:
+      base-url: ${GOOGLE_ROUTES_BASE_URL:https://routes.googleapis.com}

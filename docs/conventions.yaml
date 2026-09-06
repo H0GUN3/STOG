@@ -1,0 +1,381 @@
+meta:
+  document: conventions
+  project: STOG
+  version: 0.1
+  authority: canonical
+  depends_on: [glossary.yaml, product.yaml, architecture.yaml]
+  description: 팀 5명이 4주 동안 충돌 없이 병렬로 작업하기 위한 규칙
+  core_principle: >-
+    코드를 최소화하라가 아니라, 필요한 보장은 유지한 채 코드를 최소화하라.
+
+guarantees:
+  note: 이 셋은 어떤 이유로도 생략하지 않는다
+  items:
+    - id: G-1
+      text: 스펙과 코드가 일치한다
+      enforcement: 동작이 달라지는 PR인데 yaml 변경이 없으면 머지하지 않는다
+    - id: G-2
+      text: 다른 역할에 미치는 영향을 사전에 알린다
+      enforcement: PR 템플릿의 영향 범위 체크박스
+    - id: G-3
+      text: main은 항상 동작한다
+      enforcement: main 직접 푸시 금지, PR 필수
+
+droppable:
+  note: 아래는 지키지 않아도 된다. 시간을 쓰지 않는다
+  items:
+    - {item: 리뷰어 2인 이상, reason: 1명이면 충분하다}
+    - {item: 커밋 메시지 형식 강제, reason: 브랜치명과 PR 제목으로 추적된다}
+    - {item: 테스트 커버리지 목표, reason: 판정 로직만 테스트한다}
+    - {item: 코드 스타일 논쟁, reason: 포매터 설정으로 끝낸다}
+    - {item: 데일리 스탠드업, reason: 4주에 매일 모이면 시간만 소모된다}
+
+source_of_truth:
+  rule: yaml 문서가 단일 진실이다. 코드가 문서와 다르면 코드가 틀린 것이다
+  order: [glossary.yaml, product.yaml, architecture.yaml, conventions.yaml]
+  p0_p1_contract_lock:
+    canonical_cleaning: agent_owned_complete_in_dedicated_plan
+    device_testing: owner_only
+    backend_runtime: local_process_with_prod_and_gcs_write
+    canonical_cloud_database: stog_canonical
+    protected_legacy_profile: cloud
+    protected_legacy_database: stog_0
+    backend_test_profile: test_only_with_disposable_stog_backend_test
+    catalog_storage_redesign: deferred_after_P0_P1
+  change_flow:
+    - 스펙 변경이 필요하다고 판단
+    - 해당 yaml을 먼저 수정
+    - 같은 PR에 코드 변경을 포함
+    - CHANGELOG.yaml에 한 줄 추가
+  forbidden:
+    - 코드를 먼저 바꾸고 문서를 나중에 맞추는 것
+    - 문서에 없는 용어를 코드에 도입하는 것
+    - product.yaml에서 source가 user인 결정을 임의로 바꾸는 것
+
+git:
+  branches:
+    protected: [main]
+    naming: "{type}/{feature-id}-{slug}"
+    types: [feat, fix, docs, refactor]
+    examples:
+      - feat/F-06-card-dashboard
+      - fix/F-13-coupon-rollback
+      - docs/architecture-db-schema
+    rule: feature-id는 product.yaml의 F-xx와 1대1로 대응한다
+  merge:
+    strategy: squash
+    requires: [PR 1건, 리뷰 승인 1건, 영향 범위 체크박스 작성]
+    forbidden: [main 직접 푸시, force push]
+  codeowners:
+    note: 여러 역할이 공유하는 파일은 소유자 리뷰를 강제한다
+    paths:
+      - {path: "*.yaml", owners: [lead]}
+      - {path: "shared/model/**", owners: [lead, db]}
+      - {path: "ai/**", owners: [ai]}
+
+pr_template:
+  required_sections:
+    - name: 기능
+      content: F-xx 표기
+    - name: 스펙 변경
+      options: [없음, 있음]
+      if_yes: 변경한 yaml 파일과 항목을 적는다
+    - name: 영향받는 역할
+      type: checkbox
+      options: [FE, BE, DB, AI, 없음]
+      effect: 체크된 역할의 담당자가 리뷰어로 지정된다
+      rationale: >-
+        체크박스를 비우고 머지한 뒤 문제가 생기면 몰랐던 것이 아니라 알리지 않은 것이다.
+        책임 소재를 명확히 하는 것이 이 항목의 목적이다
+    - name: 확인 사항
+      type: checkbox
+      options: [로컬 실행 확인, 판정 로직 변경 시 테스트 추가]
+
+changelog:
+  file: CHANGELOG.yaml
+  when: 스펙이 바뀔 때마다
+  format: "{date} | {what} | {why} | {affected_roles}"
+  purpose: 아침에 이 파일만 보면 어제 무엇이 바뀌었는지 알 수 있다
+
+sync:
+  cadence: 주 2회 15분
+  days: [월, 목]
+  async: 매일 채널에 진행 상황 한 줄
+  agenda:
+    - 어제 이후 CHANGELOG에 추가된 항목
+    - 막힌 것
+    - 이번 주 안에 다른 역할이 알아야 할 변경
+
+methodology:
+  note: 4주 일정에서 정석대로 적용하면 개발이 끝나지 않는다. 범위를 좁혀서 쓴다
+  ddd:
+    apply: [Bounded Context 분리, Ubiquitous Language]
+    contexts: [space, record, plan, social, reward, profile]
+    skip: [Aggregate, Repository 패턴, Domain Event, CQRS]
+    reason: 전술 패턴을 도입하면 코드량이 배로 늘어난다
+  tdd:
+    apply_to:
+      - 방문과 통과 판정
+      - 쿠폰 발급 조건과 롤백
+      - 성향 점수 산출
+      - 좌표에서 셀 변환과 전환 확인
+      - 동선 보간 속도 판정
+    skip: [UI 테스트, 통합 테스트, E2E]
+    reason: 위 항목은 순수 함수라 테스트가 쉽고 틀리면 치명적이다
+  sdd:
+    weight: 최우선
+    practice: yaml 스펙을 먼저 작성하고 그것을 근거로 구현한다
+
+development_workflow:
+  note: 화면을 기능의 시작점으로 보지 않고 기존 수직 흐름을 확인한 뒤 최소 변경한다
+  task_unit:
+    rule: 화면 작업이 아니라 DB부터 QA까지 연결된 기능 완성 단위로 작업을 정의한다
+    example:
+      task: 내 여행 조회 기능 완성
+      layers:
+        - {layer: DB, work: 사용자별 여행 조회}
+        - {layer: Backend, work: Trip 조회 Service와 API}
+        - {layer: Android Data, work: API와 Repository 연결}
+        - {layer: Android State, work: ViewModel}
+        - {layer: UI, work: 진행중·예정·지난 여행 표시}
+        - {layer: QA, work: 실제 로그인 사용자 데이터로 검증}
+
+  reuse_first:
+    required_before_new_component: true
+    rule: >-
+      새 클래스·API·테이블·모델을 만들기 전에 저장소 전체에서 같은 의미의 기존 구현,
+      호출자, 테스트, API 경로, schema와 migration을 검색한다. 이름이 다르다는 이유만으로
+      새 기능을 만들지 않으며, 기존 구현을 재사용할 수 있는지 먼저 결정한다.
+    search_scope:
+      - app, backend, docs, migration, test 전체
+      - 같은 책임의 구현과 모든 caller
+      - API path, request·response field, Room·JPA·SQL schema
+      - 관련 용어의 단수·복수·동의어와 화면명이 다른 후보
+    related_concept_examples:
+      - [TripService, TripController, TripRepository]
+      - [TripDetail, Itinerary, Schedule, Stop]
+      - [Place, Bookmark, Photo, User]
+    evidence:
+      - 검색한 이름·개념과 검색 범위
+      - 재사용한 기존 구현과 재사용하지 못한 이유
+      - 영향받는 caller와 계층
+    stop_condition: 검색 결과와 재사용 판단을 impact_analysis에 남기기 전에는 구현을 시작하지 않는다
+
+  impact_analysis:
+    required_before_edit: true
+    rule: 기능 코드나 구조를 수정하기 전에 아래 형식의 Impact Analysis를 먼저 출력한다
+    output:
+      feature: 이번 기능의 기능 단위 이름
+      existing_related_code: 기존 관련 코드와 caller
+      existing_db: 기존 table, relation, constraint, migration
+      reuse: 재사용할 Service, Repository, API, model, component
+      new_implementation_needed: 기존 구현으로 부족한 최소 영역
+      new_api: 신규 API 또는 없음
+      new_db: 신규 DB 변경 또는 없음
+    gate: Impact Analysis가 확인되기 전에는 코드·schema·API 수정을 하지 않는다
+
+  ui_as_system_requirement:
+    rule: >-
+      UI 요구는 텍스트나 화면만 추가하는 요청이 아니라 필요한 데이터와 동작을 끝까지 연결하는
+      시스템 요구로 해석한다. fixture나 하드코딩 값으로 backend·DB 부족을 숨기지 않는다.
+    required_trace:
+      - UI에서 필요한 데이터와 상태 식별
+      - 현재 API response와 Android model·Repository 확인
+      - API에 값이 없으면 기존 DB relation과 조회 Service 확인
+      - 기존 API 확장 또는 최소한의 계층별 변경 판단
+      - ViewModel 상태와 UI 렌더링 연결
+      - 실제 저장·조회·권한·소유권·cascade 또는 관련 데이터 확인
+    example:
+      request: 여행 카드에서 참여자 정보 표시
+      checks:
+        - 현재 Trip API response에 participants가 있는지 확인
+        - 없으면 trip_members relation과 기존 participant 조회 Service 확인
+        - 필요한 경우 response·Android model·Repository를 확장
+        - ViewModel을 거쳐 실제 participant 데이터를 UI에 렌더링
+      forbidden: 이름을 UI에 직접 하드코딩하거나 fixture를 실제 API 성공처럼 표시
+
+  new_component_gate:
+    components: [Controller, Service, Repository, Entity, DTO, API, DB table, ViewModel, Android Repository]
+    rule: 위 컴포넌트를 새로 만들 때는 다음 네 가지를 설명하고 기록한다
+    required_explanation:
+      - 기존 구현으로 해결할 수 없는 이유
+      - 검색한 기존 코드와 caller
+      - 새로운 컴포넌트가 필요한 구체적인 이유
+      - 기존 컴포넌트와 책임이 겹치지 않는 이유
+    default: 설명하지 못하면 새 컴포넌트를 만들지 않고 기존 구현을 수정·재사용한다
+    dto_guard:
+      rule: >-
+        동일한 wire data를 화면별 DTO로 복제하지 않는다. TripDto, TripDetailDto, TripInfoDto,
+        TripResponse, TripDetailResponse, TripSummaryResponse가 이미 있는지 먼저 확인하고,
+        필드·권한·소유권·lifecycle이 실제로 다를 때만 새 projection을 만든다.
+
+  completion:
+    no_fe_only: true
+    rule: UI가 보이는 것만으로 기능 완료라고 보고하지 않는다. 필요한 계층이 실제 DB 동작까지 연결되어야 한다
+    layers:
+      - Android UI
+      - Android ViewModel
+      - Android Repository·Data
+      - HTTP API·Controller
+      - Backend Service
+      - Backend Repository·JPA·SQL
+      - DB
+      - 관련 데이터·권한·소유권·cascade
+    report_required:
+      - 기능명과 사용자 흐름
+      - 각 계층의 status와 증거
+      - reused·new 컴포넌트 및 신규 생성 근거
+      - DB 결과와 관련 데이터 처리 확인
+      - host·backend·owner 검증 경계에 따른 QA 결과
+    status_values: [connected, reused, new, not_applicable, pending]
+    report_rule: >-
+      미연결 계층이 있으면 완료가 아니라 pending 또는 blocked로 보고하고,
+      마지막으로 연결된 계층과 남은 계층을 명시한다.
+
+  duplicate_audit:
+    initial_pass:
+      required: true
+      timing: 이 규칙 반영 후 다음 기능 개발 전에 현재 저장소에서 1회 수행
+      deliverable: 조사 대상별 KEEP·MERGE·DELETE·REFACTOR·NEW 분류표
+      gate: 초기 조사와 분류 결과 없이 다음 기능의 신규 구조를 만들지 않는다
+    targets:
+      - {area: DB, inspect: 같은 의미의 table과 relation 중복}
+      - {area: Entity, inspect: 비슷한 persistence model 중복}
+      - {area: Repository, inspect: 같은 조회·쓰기 기능 중복}
+      - {area: Service, inspect: 비슷한 business logic 중복}
+      - {area: Controller, inspect: API path와 function 중복}
+      - {area: DTO, inspect: 동일 response·request model 중복}
+      - {area: Android API, inspect: 같은 endpoint 호출 중복}
+      - {area: Android Repository, inspect: 같은 data access 중복}
+      - {area: ViewModel, inspect: 화면별 동일 state·action logic 중복}
+      - {area: Compose, inspect: 공통 UI component 중복}
+    classifications:
+      KEEP: 기존 구현이 canonical하고 책임이 명확해 그대로 유지
+      MERGE: 같은 의미의 구현을 하나의 기존 구현으로 통합
+      DELETE: 사용처가 없거나 중복으로 대체 가능한 구현 제거
+      REFACTOR: 구현은 유지하되 책임·경계를 정리
+      NEW: 기존 구현으로 해결할 수 없고 new_component_gate를 통과한 경우만 생성
+
+reusable_components:
+  note: 이 둘만 제대로 만들면 화면 작업량이 크게 줄어든다
+  items:
+    - name: CellView
+      props: [background, badges]
+      background: [empty, visited, hot]
+      badges: [honey, hidden, landmark]
+      rule: 셀 상태가 6종이지만 컴포넌트는 하나다. 상태별로 컴포넌트를 만들지 않는다
+      badge_limit: 2
+    - name: PlaceCard
+      variants: [basket, link_block, recommendation, event, feed]
+      structure: [thumbnail, title, meta, actions]
+      rule: 구조가 같으므로 variant로 처리한다
+
+over_engineering:
+  note: 아래는 도입하지 않는다. 필요해 보이면 먼저 이 목록을 확인한다
+  forbidden:
+    - {item: cells 테이블, reason: 셀은 좌표에서 계산된다. 저장 대상이 아니다}
+    - {item: WebSocket 그룹 동기화, reason: 동시 편집을 지원하지 않기로 했다. 조회와 갱신으로 충분하다}
+    - {item: 학습 기반 추천 모델, reason: 초기 사용자 데이터가 없다. 스코어링 함수로 시작한다}
+    - {item: PostGIS, reason: H3가 공간 인덱스 역할을 대신한다}
+    - {item: 마이크로서비스, reason: API 서버를 기본으로 하고 A-03에서 AI 독립 배포를 선택하더라도 그 이상의 서비스 분리는 하지 않는다}
+    - {item: 벡터 DB와 pgvector, reason: pg_trgm lexical search가 현재 검색 범위다. embedding, pgvector, semantic search, image similarity는 후속 phase로 deferred하며 지금은 schema와 runtime을 만들지 않는다}
+    - {item: 이미지 OCR, reason: 사용자 입력이 더 빠르고 정확하다}
+    - {item: 서버 경유 사진 업로드, reason: 서명 URL로 앱이 직접 올린다}
+
+naming:
+  code: glossary.yaml의 en 식별자를 그대로 쓴다
+  ui: glossary.yaml의 ko 표기를 그대로 쓴다
+  forbidden: glossary.yaml의 avoid 목록에 있는 표현
+  new_term: 문서에 먼저 추가한 뒤 사용한다
+  direction: 방향이 다른 동작에는 방향이 드러나는 별도 이름을 쓴다
+  example: 외부 앱에서 STOG로 들어오는 동작은 share_import, STOG에서 외부 앱으로 나가는 동작은 share_export다
+  ambiguous_forbidden: [외부 공유]
+
+tuning:
+  rule: 근거 없이 정한 숫자를 코드에 상수로 박지 않는다
+  location: product.yaml의 tuning_parameters
+  note: 설정값으로 분리하고 임시값임을 문서에 명시하면 근거를 설명할 수 있다
+
+database_cleaning:
+  target: localhost:5432/stog_canonical_dev
+  owner: agent
+  status: complete
+  exclusive_plan: .omo/plans/stog-canonical-db-cleaning.md
+  forbidden_targets: [legacy local stog, Cloud stog_0]
+  rules:
+    - 정제 DML은 exclusive_plan 실행에서만 허용하고 다른 P0 P1 작업에서는 수행하지 않는다
+    - 적용된 Flyway V1부터 V17까지 수정하거나 migration을 실행하지 않는다
+    - 정제 전후 backup·restore proof·전체 public table 행 수·논리 digest를 남긴다
+    - dry-run 제약 검증을 통과하기 전 DML을 commit하지 않는다
+    - 현재 일회성 정제는 한 transaction으로 처리하고 하나라도 실패하면 전체 rollback한다
+    - migration과 application write는 정제 후 독립 read-only 검증이 끝날 때까지 금지한다
+  handoff:
+    - Flyway history와 checksum
+    - 테이블별 전후 행 수와 INSERT·UPDATE·DELETE 건수
+    - 필드별 NULL과 중복 판정 유형 및 격리 사유별 건수
+    - 변경 primary key와 이전 place id에서 생존 id로의 mapping artifact
+    - 정제 전후 논리 digest와 backup artifact SHA-256
+
+verification_boundaries:
+  backend_tests:
+    profile: test
+    database: stog_backend_test
+    identity: stog_backend_test
+    fail_closed_before_sql: true
+    forbidden_targets: [stog_canonical_dev, stog_canonical, stog, stog_0]
+    forbidden_profiles: [local, cloud, prod, gcs-write, cloud-write, local-import, catalog-refresh]
+  device_testing:
+    executor: project_runner
+    agent_execution: allowed
+    agent_device_claims: evidence_required
+    agent_allowed: [host_unit_tests, lint, assemble, source_inspection, backend_http_driver, gcs_driver, device_runtime]
+    prohibited_commands: []
+    rule: >-
+      실제 기기나 emulator 결과는 실행 출력과 기기 식별 정보를 완료 증거로 남긴다.
+      Host 검증과 기기 검증은 별도 결과로 기록한다.
+    catalog_delivery:
+      preserve_current_cleaned_catalog: true
+      preserve_current_source_license_structure: true
+      local_first_google_fallback: true
+      bulk_persist_google_fallback: forbidden
+      broader_storage_redesign: deferred_after_P0_P1
+      forward_migrations: [feature_required_at_named_gate, v17_preference_traits_constraint_at_todo_4, v10_restore_safety_at_todo_4]
+
+android_build:
+  endpoint_policy:
+    global:
+      fail_closed: true
+      forbidden_hosts:
+        - 127.0.0.1
+      rule: 127.0.0.1:8080을 포함한 127.0.0.1 loopback endpoint는 모든 APK target에서 영구 거부한다
+    physical_device:
+      target: phone
+      endpoint: current_reachable_public_https_backend_or_tunnel
+      source_order: [gradle_property, STOG_API_BASE_URL_environment, ignored_secrets.properties]
+      fail_closed: true
+      rules:
+        - 실기기 APK는 현재 살아 있는 public HTTPS backend 또는 Quick Tunnel hostname만 사용한다
+        - http://10.0.2.2:8080, localhost, 127.0.0.1, LAN 주소를 실기기 APK에 사용하지 않는다
+        - Quick Tunnel hostname이 바뀌면 ignored secrets.properties의 STOG_API_BASE_URL을 갱신하고 APK를 다시 빌드한다
+        - 현재 주소를 Git, 문서의 고정값, APK 외부 설정에 영구 기록하지 않는다
+    emulator:
+      target: emulator
+      endpoint: http://10.0.2.2:8080
+      fail_closed: true
+      rule: 에뮬레이터 전용 주소는 stogApiTarget=emulator를 함께 지정한 경우에만 허용한다
+
+exception_handling:
+  note: 문서에 없는 상황이 생겼을 때의 처리 절차
+  steps:
+    - 임의로 결정하지 않는다
+    - 해당 yaml의 open_items에 질문을 추가한다
+    - 채널에 알리고 담당 역할의 답을 받는다
+    - 결정되면 decisions로 옮기고 CHANGELOG에 기록한다
+  urgent_case:
+    condition: 기다리면 작업이 멈추는 경우
+    action: 가장 되돌리기 쉬운 선택을 하고 PR 설명에 임시 결정임을 명시한다
+    followup: 다음 동기화에서 반드시 안건으로 올린다
+
+open_items:
+  - {id: C-01, question: 포매터와 린터 설정을 무엇으로 통일할지}
+  - {id: C-02, question: 브랜치 보호 규칙을 GitHub 유료 기능 없이 어디까지 강제할 수 있는지}

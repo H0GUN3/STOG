@@ -1,0 +1,203 @@
+{
+  "trace_id": "stobee-ai-12-incomplete-schedule",
+  "schema_version": "stobee-ai-golden-trace/v1",
+  "base_version": 7,
+  "proposal_fingerprint": "c62ba09128d373c959649ad3aff9048a9109826e3582e51f106149950f089b77",
+  "client_apply_id": "00000000-0000-4000-8000-000000000012",
+  "given": {
+    "trip_id": 5001,
+    "actor_user_id": 7001,
+    "actor_membership": "active",
+    "itinerary_version": 7,
+    "replacement_candidate": {
+      "basket_item_id": 2102,
+      "trip_id": 5001,
+      "confirmation_state": "confirmed",
+      "resolution": "resolved"
+    },
+    "declared_schedule_item_count": 5,
+    "current_schedule": [
+      {
+        "basket_item_id": 1101,
+        "day_number": 1,
+        "order_index": 0,
+        "planned_arrival": "09:00",
+        "planned_duration_min": 60,
+        "is_fixed": true,
+        "role": "fixed"
+      },
+      {
+        "basket_item_id": 1102,
+        "day_number": 1,
+        "order_index": 1,
+        "planned_arrival": "10:30",
+        "planned_duration_min": 45,
+        "is_fixed": false,
+        "role": "target"
+      },
+      {
+        "basket_item_id": 1103,
+        "day_number": 1,
+        "order_index": 2,
+        "planned_arrival": "12:00",
+        "planned_duration_min": 90,
+        "is_fixed": false,
+        "role": "unrelated"
+      },
+      {
+        "basket_item_id": 1201,
+        "day_number": 2,
+        "order_index": 0,
+        "planned_arrival": "09:30",
+        "planned_duration_min": 75,
+        "is_fixed": true,
+        "role": "fixed"
+      },
+      {
+        "basket_item_id": 1202,
+        "day_number": 2,
+        "order_index": 1,
+        "planned_arrival": "11:15",
+        "planned_duration_min": 60,
+        "is_fixed": false,
+        "role": "unrelated"
+      }
+    ],
+    "before_counts": {
+      "itinerary_items": 5,
+      "itinerary_changes": 2,
+      "proposals": 0,
+      "proposal_actions": 0,
+      "apply_receipts": 0
+    },
+    "before_state": {
+      "proposal": "absent",
+      "actions": "absent",
+      "apply_receipt": "absent"
+    }
+  },
+  "when": {
+    "operation": "preview",
+    "request_trip_id": 5001,
+    "request_base_version": 7,
+    "selected_target_basket_item_id": 1102,
+    "replacement_candidate_basket_item_id": 2102,
+    "candidate_resolution": "resolved",
+    "schedule_input": [
+      {
+        "basket_item_id": 1101,
+        "day_number": 1,
+        "order_index": 0,
+        "planned_arrival": "09:00",
+        "planned_duration_min": 60,
+        "is_fixed": true,
+        "role": "fixed"
+      },
+      {
+        "basket_item_id": 1102,
+        "day_number": 1,
+        "order_index": 1,
+        "planned_arrival": "10:30",
+        "planned_duration_min": 45,
+        "is_fixed": false,
+        "role": "target"
+      },
+      {
+        "basket_item_id": 1103,
+        "day_number": 1,
+        "order_index": 2,
+        "planned_arrival": "12:00",
+        "planned_duration_min": 90,
+        "is_fixed": false,
+        "role": "unrelated"
+      },
+      {
+        "basket_item_id": 1201,
+        "day_number": 2,
+        "order_index": 0,
+        "planned_arrival": "09:30",
+        "planned_duration_min": 75,
+        "is_fixed": true,
+        "role": "fixed"
+      }
+    ],
+    "provider_result": "not_called",
+    "model_result": "not_called",
+    "response_delivery": "delivered"
+  },
+  "expected": {
+    "outcome": "REJECTED_SCHEDULE_INCOMPLETE",
+    "error_code": "SCHEDULE_INCOMPLETE",
+    "server_write": "none",
+    "itinerary_persisted": false,
+    "schedule_after": [
+      {
+        "basket_item_id": 1101,
+        "day_number": 1,
+        "order_index": 0,
+        "planned_arrival": "09:00",
+        "planned_duration_min": 60,
+        "is_fixed": true,
+        "role": "fixed"
+      },
+      {
+        "basket_item_id": 1102,
+        "day_number": 1,
+        "order_index": 1,
+        "planned_arrival": "10:30",
+        "planned_duration_min": 45,
+        "is_fixed": false,
+        "role": "target"
+      },
+      {
+        "basket_item_id": 1103,
+        "day_number": 1,
+        "order_index": 2,
+        "planned_arrival": "12:00",
+        "planned_duration_min": 90,
+        "is_fixed": false,
+        "role": "unrelated"
+      },
+      {
+        "basket_item_id": 1201,
+        "day_number": 2,
+        "order_index": 0,
+        "planned_arrival": "09:30",
+        "planned_duration_min": 75,
+        "is_fixed": true,
+        "role": "fixed"
+      },
+      {
+        "basket_item_id": 1202,
+        "day_number": 2,
+        "order_index": 1,
+        "planned_arrival": "11:15",
+        "planned_duration_min": 60,
+        "is_fixed": false,
+        "role": "unrelated"
+      }
+    ],
+    "retained_basket_item_ids": [
+      1101,
+      1102,
+      1103,
+      1201,
+      1202
+    ],
+    "removed_basket_item_ids": [],
+    "added_basket_item_ids": [],
+    "after_counts": {
+      "itinerary_items": 5,
+      "itinerary_changes": 2,
+      "proposals": 0,
+      "proposal_actions": 0,
+      "apply_receipts": 0
+    },
+    "after_state": {
+      "proposal": "absent",
+      "actions": "absent",
+      "apply_receipt": "absent"
+    },
+    "apply_receipt": null
+  }
+}
