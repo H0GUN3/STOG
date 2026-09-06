@@ -6,11 +6,6 @@
   <p><strong>여행의 순간을 공간에 담고, 다음 여정을 설계하는 기록 서비스</strong></p>
 </div>
 
-<p align="center">
-  <img src="docs/ds_rfs/start_screen.png" alt="STOG start screen" width="220">
-  <img src="docs/diagrams/stog-app-server-cloud-gcs-overview.png" alt="STOG system overview" width="620">
-</p>
-
 ## STOG는 무엇인가요?
 
 STOG는 **STEP + LOG**에서 출발한 Android 여행 기록·계획 서비스입니다.
