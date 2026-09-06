@@ -4,15 +4,6 @@
   <h1>STOG</h1>
 
   <p><strong>여행의 순간을 공간에 담고, 다음 여정을 설계하는 기록 서비스</strong></p>
-
-  <p>
-    <a href="https://github.com/H0GUN3/STOG">
-      <img src="https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white" alt="Android API 24+">
-    </a>
-    <a href="https://kotlinlang.org/">
-      <img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin 2.2.10">
-    </a>
-  </p>
 </div>
 
 <p align="center">
