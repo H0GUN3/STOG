@@ -12,12 +12,6 @@
     <a href="https://kotlinlang.org/">
       <img src="https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin 2.2.10">
     </a>
-    <a href="https://spring.io/projects/spring-boot">
-      <img src="https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 4.1.0">
-    </a>
-    <a href="https://www.postgresql.org/">
-      <img src="https://img.shields.io/badge/PostgreSQL-18.4-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 18.4">
-    </a>
   </p>
 </div>
 
